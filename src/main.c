@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int main(int argc, char *argv[])
 {
@@ -22,7 +23,11 @@ int main(int argc, char *argv[])
 
     if (nread > 0 && line[nread - 1] == '\n')
       line[nread - 1] = '\0';
-
+      
+    if (strcmp(line, "exit") == 0) {
+      free(line);
+      return 0;
+    }
     printf("%s: command not found\n", line);
   }
 
