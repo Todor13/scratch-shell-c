@@ -22,10 +22,31 @@ int builtin_echo(int argc, char **argv)
   return 0;
 }
 
+int builtin_type(int argc, char **argv);
+
+int builtin_exit(int argc, char **argv) 
+{
+  exit(0);
+}
+
 struct builtin builtins[] = {
   {"echo", builtin_echo},
+  {"type", builtin_type},
+  {"exit", builtin_exit},
   {NULL, NULL}
 };
+
+int builtin_type(int argc, char **argv) 
+{
+  for (int i = 0; builtins[i].name; i++) {
+    if (strcmp(argv[1], builtins[i].name) == 0) {
+      printf("%s is a shell builtin\n", argv[1]);
+      return 0;
+    }
+  }
+  printf("%s not found\n", argv[1]);
+  return 0;
+}
 
 int tokenize(char *line, char **argv) {
   int argc = 0;
@@ -59,11 +80,6 @@ int main(int argc, char *argv[])
 
     if (nread > 0 && line[nread - 1] == '\n')
       line[nread - 1] = '\0';
-
-    if (strcmp(line, "exit") == 0) {
-      free(line);
-      return 0;
-    }
 
     int result = -1;
     char *argv[MAX_ARGS];
