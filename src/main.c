@@ -1,13 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 const int MAX_ARGS = 32;
 
 typedef int (*builtin_fn)(int argc, char **argv);
 
-struct builtin {
+struct builtin
+{
   const char *name;
   builtin_fn fn;
 };
@@ -25,25 +28,27 @@ int builtin_echo(int argc, char **argv)
 
 int builtin_type(int argc, char **argv);
 
-int builtin_exit(int argc, char **argv) 
+int builtin_exit(int argc, char **argv)
 {
   exit(0);
 }
 
+// clang-format off
 struct builtin builtins[] = {
-  {"echo", builtin_echo},
-  {"type", builtin_type},
-  {"exit", builtin_exit},
-  {NULL, NULL}
+  { "echo", builtin_echo }, 
+  { "type", builtin_type }, 
+  { "exit", builtin_exit }, 
+  { NULL, NULL }
 };
+// clang-format on
 
-int find_executable(const char *cmd, char *out, size_t outsz) 
+int find_executable(const char *cmd, char *out, size_t outsz)
 {
-  if (!cmd) 
+  if (!cmd)
     return -1;
 
   const char *path = getenv("PATH");
-  if (!path) 
+  if (!path)
     return -1;
 
   char *copy = strdup(path);
@@ -69,7 +74,7 @@ int find_executable(const char *cmd, char *out, size_t outsz)
   return -1;
 }
 
-int builtin_type(int argc, char **argv) 
+int builtin_type(int argc, char **argv)
 {
   for (int i = 0; builtins[i].name; i++) {
     if (strcmp(argv[1], builtins[i].name) == 0) {
@@ -83,15 +88,58 @@ int builtin_type(int argc, char **argv)
     printf("%s is %s\n", argv[1], fullpath);
     return 0;
   }
-  
+
   printf("%s not found\n", argv[1]);
-  return 0;
+  return 1;
 }
 
-int tokenize(char *line, char **argv) {
+int dispatch_builtin(int argc, char **argv)
+{
+  for (int i = 0; builtins[i].name; i++) {
+    if (strcmp(argv[0], builtins[i].name) == 0) {
+      return builtins[i].fn(argc, argv);
+    }
+  }
+
+  return -1;
+}
+
+int dispatch_executable(int argc, char **argv)
+{
+  char fullpath[1024];
+  if (find_executable(argv[0], fullpath, sizeof fullpath) == 0) {
+    char *cmd = argv[0];
+    pid_t pid = fork();
+    if (pid == 0) {
+      if (strchr(cmd, '/')) {
+        execv(cmd, argv);
+      } else {
+        execvp(cmd, argv);
+      }
+      perror(cmd);
+      _exit(127);
+    }
+    if (pid < 0) {
+      perror("fork");
+      return 1;
+    }
+    int status;
+    if (waitpid(pid, &status, 0) < 0) {
+      perror("waitpid");
+      return 1;
+    }
+
+    return 0;
+  }
+
+  return -1;
+}
+
+int tokenize(char *line, char **argv)
+{
   int argc = 0;
   char *tok = strtok(line, " \t");
-  while(tok && argc < MAX_ARGS) {
+  while (tok && argc < MAX_ARGS) {
     argv[argc++] = tok;
     tok = strtok(NULL, " \t");
   }
@@ -106,9 +154,9 @@ int main(int argc, char *argv[])
   char *line = NULL;
   size_t len = 0;
   __ssize_t nread;
+  int status = 0;
 
-  while (1)
-  {
+  for (;;) {
     printf("$ ");
     nread = getline(&line, &len, stdin);
 
@@ -121,23 +169,18 @@ int main(int argc, char *argv[])
     if (nread > 0 && line[nread - 1] == '\n')
       line[nread - 1] = '\0';
 
-    int result = -1;
     char *argv[MAX_ARGS];
     int argc = tokenize(line, argv);
-    for (int i = 0; builtins[i].name; i++) {
-      if (strcmp(argv[0], builtins[i].name) == 0) {
-        result = builtins[i].fn(argc, argv);
-        if (result != 0) {
-          free(line);
-          return result; 
-        }
-        break;
-      }
+
+    if ((status = dispatch_builtin(argc, argv)) >= 0) {
+      continue;
     }
-    
-    if (result == -1) {
-      printf("%s: command not found\n", line);
+
+    if ((status = dispatch_executable(argc, argv)) >= 0) {
+      continue;
     }
+
+    printf("%s: command not found\n", line);
   }
 
   free(line);
