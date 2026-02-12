@@ -26,6 +26,18 @@ int builtin_echo(int argc, char **argv)
   return 0;
 }
 
+int builtin_pwd(int argc, char **argv)
+{
+  char cwd[1024];
+  if (getcwd(cwd, sizeof(cwd)) == NULL) {
+    perror("getcwd");
+    return 1;
+  }
+
+  printf("%s\n", cwd);
+  return 0;
+}
+
 int builtin_type(int argc, char **argv);
 
 int builtin_exit(int argc, char **argv)
@@ -38,6 +50,7 @@ struct builtin builtins[] = {
   { "echo", builtin_echo }, 
   { "type", builtin_type }, 
   { "exit", builtin_exit }, 
+  { "pwd", builtin_pwd },
   { NULL, NULL }
 };
 // clang-format on
@@ -45,15 +58,15 @@ struct builtin builtins[] = {
 int find_executable(const char *cmd, char *out, size_t outsz)
 {
   if (!cmd)
-    return -1;
+    return 1;
 
   const char *path = getenv("PATH");
   if (!path)
-    return -1;
+    return 1;
 
   char *copy = strdup(path);
   if (!copy)
-    return -1;
+    return 1;
 
   char *saveptr = NULL;
   for (char *dir = __strtok_r(copy, ":", &saveptr); dir; dir = __strtok_r(NULL, ":", &saveptr)) {
