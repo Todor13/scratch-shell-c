@@ -1,11 +1,10 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <errno.h>
-
 
 const int MAX_ARGS = 32;
 
@@ -49,10 +48,21 @@ int builtin_exit(int argc, char **argv)
 
 int builtin_cd(int argc, char **argv)
 {
-  char *dir = argv[1];
-  chdir(dir);
-  switch (errno)
-  {
+  char *dir;
+  if (strchr(argv[1], '~')) {
+    char *home = getenv("HOME");
+    if (home == NULL) {
+      printf("HOME dir not set\n");
+      return 1;
+    }
+
+    dir = home;
+  } else {
+    dir = argv[1];
+  }
+
+  if (chdir(dir) == -1) {
+    switch (errno) {
     case ENOENT:
       printf("%s: No such file or directory\n", dir);
       return 1;
@@ -67,8 +77,9 @@ int builtin_cd(int argc, char **argv)
 
     default:
       return 1;
+    }
   }
-    
+
   return 0;
 }
 
