@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <errno.h>
+
 
 const int MAX_ARGS = 32;
 
@@ -45,12 +47,38 @@ int builtin_exit(int argc, char **argv)
   exit(0);
 }
 
+int builtin_cd(int argc, char **argv)
+{
+  char *dir = argv[1];
+  chdir(dir);
+  switch (errno)
+  {
+    case ENOENT:
+      printf("%s: No such file or directory\n", dir);
+      return 1;
+
+    case ENOTDIR:
+      printf("%s: Not a directory\n", dir);
+      return 1;
+
+    case EACCES:
+      printf("%s: Permission denied\n", dir);
+      return 1;
+
+    default:
+      return 1;
+  }
+    
+  return 0;
+}
+
 // clang-format off
 struct builtin builtins[] = {
   { "echo", builtin_echo }, 
   { "type", builtin_type }, 
   { "exit", builtin_exit }, 
   { "pwd", builtin_pwd },
+  { "cd", builtin_cd },
   { NULL, NULL }
 };
 // clang-format on
@@ -185,11 +213,11 @@ int main(int argc, char *argv[])
     char *argv[MAX_ARGS];
     int argc = tokenize(line, argv);
 
-    if ((status = dispatch_builtin(argc, argv)) >= 0) {
+    if ((status = dispatch_builtin(argc, argv)) > -1) {
       continue;
     }
 
-    if ((status = dispatch_executable(argc, argv)) >= 0) {
+    if ((status = dispatch_executable(argc, argv)) > -1) {
       continue;
     }
 
