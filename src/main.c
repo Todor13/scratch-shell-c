@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <ctype.h>
 
 const int MAX_ARGS = 32;
 
@@ -200,6 +201,35 @@ int tokenize(char *line, char **argv)
   return argc;
 }
 
+int tokenize_new(char *input, char **argv) 
+{
+  int argc = 0;
+  char buf[1024];
+  int bidx = 0;
+  int single_quote_mode = 0;
+  int i = 0;
+  while(input[i++] != '\0') {
+    char c = input[i];
+    // if (strcmp(c, '\'') == 0) {
+    //   if (single_quote_mode == 1) {
+
+    //   }
+    // }
+
+    if (isspace(c) > 0) {
+      buf[bidx] = '\0';
+      argv[argc] = malloc(strlen(buf));
+      strcpy(argv[argc++], buf);
+      continue;
+    }
+
+    buf[bidx++] = c;
+  }
+
+  argv[argc] = '\0';
+  return argc;
+}
+
 int main(int argc, char *argv[])
 {
   setbuf(stdout, NULL);
@@ -222,7 +252,7 @@ int main(int argc, char *argv[])
       line[nread - 1] = '\0';
 
     char *argv[MAX_ARGS];
-    int argc = tokenize(line, argv);
+    int argc = tokenize_new(line, argv);
 
     if ((status = dispatch_builtin(argc, argv)) > -1) {
       continue;
