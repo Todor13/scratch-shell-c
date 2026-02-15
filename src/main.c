@@ -199,25 +199,29 @@ void write_buffer(int *argc, char **argv, char *buf, int *blen)
 
 int tokenize_new(char *input, char **argv)
 {
+  int single_quote_mask = 0x01;
+  int double_quote_mask = 0x02;
   int argc = 0;
   char buf[1024];
   bool single_quote_mode = false;
+  int mode = 0;
   int bidx = 0;
   int i = 0;
   for (;;) {
     char c = input[i++];
 
-    if (c == '\'') {
-      if (single_quote_mode) {
-        single_quote_mode = false;
-      } else {
-        single_quote_mode = true;
-      }
+    if (c == '\"' && !(mode & single_quote_mask)) {
+      mode ^= double_quote_mask;
+      continue;
+    }
+
+    if (c == '\'' && !(mode & double_quote_mask)) {
+      mode ^= single_quote_mask;
       continue;
     }
 
     bool term = c == '\0';
-    if (!single_quote_mode && isspace(c) > 0 || term) {
+    if (mode == 0 && isspace(c) > 0 || term) {
       if (term) {
         write_buffer(&argc, argv, buf, &bidx);
         break;
