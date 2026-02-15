@@ -201,6 +201,7 @@ int tokenize_new(char *input, char **argv)
 {
   int single_quote_mask = 0x01;
   int double_quote_mask = 0x02;
+  int escape_mask = 0x04;
   int argc = 0;
   char buf[1024];
   bool single_quote_mode = false;
@@ -210,12 +211,12 @@ int tokenize_new(char *input, char **argv)
   for (;;) {
     char c = input[i++];
 
-    if (c == '\"' && !(mode & single_quote_mask)) {
+    if (c == '\"' && !(mode & (single_quote_mask | escape_mask))) {
       mode ^= double_quote_mask;
       continue;
     }
 
-    if (c == '\'' && !(mode & double_quote_mask)) {
+    if (c == '\'' && !(mode & (double_quote_mask | escape_mask))) {
       mode ^= single_quote_mask;
       continue;
     }
@@ -234,11 +235,27 @@ int tokenize_new(char *input, char **argv)
       continue;
     }
 
+    if (c == '\\' && !(mode & escape_mask)) {
+      mode ^= escape_mask;
+      continue;
+    } 
+
     buf[bidx++] = c;
+
+    if (mode & escape_mask)
+      mode ^= escape_mask;
   }
 
   argv[argc] = '\0';
   return argc;
+}
+
+void destruct_argv(char **argv)
+{
+  for (int i = 0; argv[i] != NULL; i++) {
+    free(argv[i]);
+    argv[i] = NULL;
+  }
 }
 
 int main(int argc, char *argv[])
@@ -274,6 +291,8 @@ int main(int argc, char *argv[])
     }
 
     printf("%s: command not found\n", line);
+
+    destruct_argv(argv);
   }
 
   free(line);
