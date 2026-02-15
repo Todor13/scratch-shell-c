@@ -235,7 +235,7 @@ int tokenize_new(char *input, char **argv)
       continue;
     }
 
-    if (c == '\\' && !(mode & escape_mask)) {
+    if (c == '\\' && !(mode & (escape_mask | single_quote_mask))) {
       mode ^= escape_mask;
       continue;
     } 
