@@ -2,18 +2,19 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "cmake-build",
+            "label": "build",
             "type": "shell",
-            "command": "cmake",
-            "args": [
-                "--build",
-                "./build"
-            ],
-            "problemMatcher": ["$gcc"],
+            "command": "${workspaceFolder}/.codecrafters/compile.sh",
+            "options": {
+                "env": {
+                    "VCPKG_ROOT": "/home/todor/vcpkg"
+                }
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
-            }
+            },
+            "problemMatcher": []
         }
     ]
 }

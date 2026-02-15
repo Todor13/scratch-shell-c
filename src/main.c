@@ -1,11 +1,12 @@
+#include <ctype.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <ctype.h>
 
 const int MAX_ARGS = 32;
 
@@ -188,38 +189,44 @@ int dispatch_executable(int argc, char **argv)
   return -1;
 }
 
-int tokenize(char *line, char **argv)
+void write_buffer(int *argc, char **argv, char *buf, int *blen)
 {
-  int argc = 0;
-  char *tok = strtok(line, " \t");
-  while (tok && argc < MAX_ARGS) {
-    argv[argc++] = tok;
-    tok = strtok(NULL, " \t");
-  }
-
-  argv[argc] = NULL;
-  return argc;
+  buf[*blen] = '\0';
+  *blen = 0;
+  argv[*argc] = malloc(strlen(buf) + 1);
+  strcpy(argv[(*argc)++], buf);
 }
 
-int tokenize_new(char *input, char **argv) 
+int tokenize_new(char *input, char **argv)
 {
   int argc = 0;
   char buf[1024];
+  bool single_quote_mode = false;
   int bidx = 0;
-  int single_quote_mode = 0;
   int i = 0;
-  while(input[i++] != '\0') {
-    char c = input[i];
-    // if (strcmp(c, '\'') == 0) {
-    //   if (single_quote_mode == 1) {
+  for (;;) {
+    char c = input[i++];
 
-    //   }
-    // }
+    if (c == '\'') {
+      if (single_quote_mode) {
+        single_quote_mode = false;
+      } else {
+        single_quote_mode = true;
+      }
+      continue;
+    }
 
-    if (isspace(c) > 0) {
-      buf[bidx] = '\0';
-      argv[argc] = malloc(strlen(buf));
-      strcpy(argv[argc++], buf);
+    bool term = c == '\0';
+    if (!single_quote_mode && isspace(c) > 0 || term) {
+      if (term) {
+        write_buffer(&argc, argv, buf, &bidx);
+        break;
+      }
+
+      if (bidx == 0)
+        continue;
+
+      write_buffer(&argc, argv, buf, &bidx);
       continue;
     }
 
