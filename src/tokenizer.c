@@ -1,0 +1,102 @@
+#include "tokenizer.h"
+
+static int single_quote_mask = 0x01;
+static int double_quote_mask = 0x02;
+static int escape_mask = 0x04;
+
+static void write_buffer(struct tokenize_result *result, char *buf, int *blen)
+{
+  buf[*blen] = '\0';
+  *blen = 0;
+  if (result->redirect) {
+    result->redirect_path = malloc(*blen + 1);
+    strcpy(result->redirect_path, buf);
+  } else {
+    result->argv[result->argc] = malloc(*blen + 1);
+    strcpy(result->argv[result->argc++], buf);
+  }
+}
+
+struct tokenize_result *tokenize(char *input)
+{
+  struct tokenize_result *result = malloc(sizeof(struct tokenize_result));
+  result->argc = 0;
+  result->redirect = NONE;
+  char buf[1024];
+  int mode = 0;
+  int blen = 0;
+  int i = 0;
+  for (;;) {
+    char c = input[i++];
+
+    if (c == '\"' && !(mode & (single_quote_mask | escape_mask))) {
+      mode ^= double_quote_mask;
+      continue;
+    }
+
+    if (c == '\'' && !(mode & (double_quote_mask | escape_mask))) {
+      mode ^= single_quote_mask;
+      continue;
+    }
+
+    bool term = c == '\0';
+    if (mode == 0 && isspace(c) > 0 || term) {
+      if (term) {
+        write_buffer(result, buf, &blen);
+        break;
+      }
+
+      if (blen == 0)
+        continue;
+
+      write_buffer(result, buf, &blen);
+      continue;
+    }
+
+    if (c == '\\' && !(mode & (escape_mask | single_quote_mask))) {
+      mode ^= escape_mask;
+      continue;
+    }
+
+    if (mode == 0) {
+      if ((c == 1 || c == 2) && input[i] == '>') {
+        result->redirect = c == 1 ? STDOUT : STDERR;
+        result->redirect_mode = OVERRIDE;
+        i++;
+        if (input[i + 1] == '>') {
+          i++;
+          result->redirect_mode = APPPEND;
+        }
+      }
+      if (c == '>') {
+        result->redirect = STDOUT;
+        result->redirect_mode = OVERRIDE;
+        if (input[i] == '>') {
+          i++;
+          result->redirect_mode = APPPEND;
+        }
+      }
+    }
+
+    buf[blen++] = c;
+
+    if (mode & escape_mask)
+      mode ^= escape_mask;
+  }
+
+  result->argv[result->argc] = NULL;
+  return result;
+}
+
+void destruct_result(struct tokenize_result *result)
+{
+  for (int i = 0; result->argv[i] != NULL; i++) {
+    free(result->argv[i]);
+    result->argv[i] = NULL;
+  }
+
+  if (result->redirect_mode != NONE) {
+    free(result->redirect_path);
+  }
+  free(result);
+}

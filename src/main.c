@@ -1,12 +1,12 @@
-#include <ctype.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
+
+#include "tokenizer.h"
 
 const int MAX_ARGS = 32;
 
@@ -147,28 +147,37 @@ int builtin_type(int argc, char **argv)
   return 1;
 }
 
-int dispatch_builtin(int argc, char **argv)
+int dispatch_builtin(struct tokenize_result *result)
 {
   for (int i = 0; builtins[i].name; i++) {
-    if (strcmp(argv[0], builtins[i].name) == 0) {
-      return builtins[i].fn(argc, argv);
+    if (strcmp(result->argv[0], builtins[i].name) == 0) {
+      return builtins[i].fn(result->argc, result->argv);
     }
   }
 
   return -1;
 }
 
-int dispatch_executable(int argc, char **argv)
+int dispatch_executable(struct tokenize_result *result)
 {
   char fullpath[1024];
-  if (find_executable(argv[0], fullpath, sizeof fullpath) == 0) {
-    char *cmd = argv[0];
+  if (find_executable(result->argv[0], fullpath, sizeof fullpath) == 0) {
+    char *cmd = result->argv[0];
     pid_t pid = fork();
     if (pid == 0) {
+      if (result->redirect_mode != NONE) {
+        int fd = open(result->redirect_path, O_WRONLY | O_CREAT | (result->redirect_mode == OVERRIDE ? O_TRUNC : O_APPEND), 0644);
+        if (result->redirect == STDOUT)
+          dup2(fd, STDOUT_FILENO);
+        if (result->redirect == STDERR)
+          dup2(fd, STDERR_FILENO);
+        close(fd);
+      }
+      
       if (strchr(cmd, '/')) {
-        execv(cmd, argv);
+        execv(cmd, result->argv);
       } else {
-        execvp(cmd, argv);
+        execvp(cmd, result->argv);
       }
       perror(cmd);
       _exit(127);
@@ -189,73 +198,18 @@ int dispatch_executable(int argc, char **argv)
   return -1;
 }
 
-void write_buffer(int *argc, char **argv, char *buf, int *blen)
+int dispatch(struct tokenize_result *result)
 {
-  buf[*blen] = '\0';
-  *blen = 0;
-  argv[*argc] = malloc(strlen(buf) + 1);
-  strcpy(argv[(*argc)++], buf);
-}
-
-int tokenize_new(char *input, char **argv)
-{
-  int single_quote_mask = 0x01;
-  int double_quote_mask = 0x02;
-  int escape_mask = 0x04;
-  int argc = 0;
-  char buf[1024];
-  bool single_quote_mode = false;
-  int mode = 0;
-  int bidx = 0;
-  int i = 0;
-  for (;;) {
-    char c = input[i++];
-
-    if (c == '\"' && !(mode & (single_quote_mask | escape_mask))) {
-      mode ^= double_quote_mask;
-      continue;
-    }
-
-    if (c == '\'' && !(mode & (double_quote_mask | escape_mask))) {
-      mode ^= single_quote_mask;
-      continue;
-    }
-
-    bool term = c == '\0';
-    if (mode == 0 && isspace(c) > 0 || term) {
-      if (term) {
-        write_buffer(&argc, argv, buf, &bidx);
-        break;
-      }
-
-      if (bidx == 0)
-        continue;
-
-      write_buffer(&argc, argv, buf, &bidx);
-      continue;
-    }
-
-    if (c == '\\' && !(mode & (escape_mask | single_quote_mask))) {
-      mode ^= escape_mask;
-      continue;
-    } 
-
-    buf[bidx++] = c;
-
-    if (mode & escape_mask)
-      mode ^= escape_mask;
+  int status;
+  if ((status = dispatch_builtin(result)) > -1) {
+    return status;
   }
 
-  argv[argc] = '\0';
-  return argc;
-}
-
-void destruct_argv(char **argv)
-{
-  for (int i = 0; argv[i] != NULL; i++) {
-    free(argv[i]);
-    argv[i] = NULL;
+  if ((status = dispatch_executable(result)) > -1) {
+    return status;
   }
+
+  return -1;
 }
 
 int main(int argc, char *argv[])
@@ -264,7 +218,6 @@ int main(int argc, char *argv[])
   char *line = NULL;
   size_t len = 0;
   __ssize_t nread;
-  int status = 0;
 
   for (;;) {
     printf("$ ");
@@ -279,20 +232,13 @@ int main(int argc, char *argv[])
     if (nread > 0 && line[nread - 1] == '\n')
       line[nread - 1] = '\0';
 
-    char *argv[MAX_ARGS];
-    int argc = tokenize_new(line, argv);
+    struct tokenize_result *result = tokenize(line);
 
-    if ((status = dispatch_builtin(argc, argv)) > -1) {
-      continue;
+    if (dispatch(result) == -1) {
+      printf("%s: command not found\n", line);
     }
 
-    if ((status = dispatch_executable(argc, argv)) > -1) {
-      continue;
-    }
-
-    printf("%s: command not found\n", line);
-
-    destruct_argv(argv);
+    destruct_result(result);
   }
 
   free(line);
