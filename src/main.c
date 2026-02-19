@@ -1,10 +1,10 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include "tokenizer.h"
 
@@ -147,11 +147,62 @@ int builtin_type(int argc, char **argv)
   return 1;
 }
 
+int dispatch_builtin_redirect(struct tokenize_result *result, builtin_fn func)
+{
+  int saved_stdout = dup(STDOUT_FILENO);
+  int saved_stderr = dup(STDERR_FILENO);
+  if (result->redirect != NONE) {
+    int fd = open(result->redirect_path,
+                  O_WRONLY | O_CREAT | (result->redirect_mode == OVERRIDE ? O_TRUNC : O_APPEND),
+                  0644);
+    if (result->redirect == STDOUT)
+      dup2(fd, STDOUT_FILENO);
+    if (result->redirect == STDERR)
+      dup2(fd, STDERR_FILENO);
+    close(fd);
+  }
+
+  int status = func(result->argc, result->argv);
+
+  dup2(saved_stdout, STDOUT_FILENO);
+  close(saved_stdout);
+  dup2(saved_stderr, STDERR_FILENO);
+  close(saved_stderr);
+
+  return status;
+}
+
+void redirect(struct tokenize_result *result)
+{
+  int fd = open(result->redirect_path,
+                O_WRONLY | O_CREAT | (result->redirect_mode == OVERRIDE ? O_TRUNC : O_APPEND),
+                0644);
+  if (result->redirect == STDOUT)
+    dup2(fd, STDOUT_FILENO);
+  if (result->redirect == STDERR)
+    dup2(fd, STDERR_FILENO);
+  close(fd);
+}
+
 int dispatch_builtin(struct tokenize_result *result)
 {
   for (int i = 0; builtins[i].name; i++) {
     if (strcmp(result->argv[0], builtins[i].name) == 0) {
-      return builtins[i].fn(result->argc, result->argv);
+      int saved_stdout = dup(STDOUT_FILENO);
+      int saved_stderr = dup(STDERR_FILENO);
+      if (result->redirect != NONE) {
+        redirect(result);
+      }
+
+      int status = builtins[i].fn(result->argc, result->argv);
+
+      fflush(stdout);
+      dup2(saved_stdout, STDOUT_FILENO);
+      close(saved_stdout);
+      dup2(saved_stderr, STDERR_FILENO);
+      close(saved_stderr);
+
+      return status;
     }
   }
 
@@ -165,15 +216,10 @@ int dispatch_executable(struct tokenize_result *result)
     char *cmd = result->argv[0];
     pid_t pid = fork();
     if (pid == 0) {
-      if (result->redirect_mode != NONE) {
-        int fd = open(result->redirect_path, O_WRONLY | O_CREAT | (result->redirect_mode == OVERRIDE ? O_TRUNC : O_APPEND), 0644);
-        if (result->redirect == STDOUT)
-          dup2(fd, STDOUT_FILENO);
-        if (result->redirect == STDERR)
-          dup2(fd, STDERR_FILENO);
-        close(fd);
+      if (result->redirect != NONE) {
+        redirect(result);
       }
-      
+
       if (strchr(cmd, '/')) {
         execv(cmd, result->argv);
       } else {
@@ -238,7 +284,7 @@ int main(int argc, char *argv[])
       printf("%s: command not found\n", line);
     }
 
-    destruct_result(result);
+    // destruct_result(result);
   }
 
   free(line);

@@ -7,7 +7,6 @@ static int escape_mask = 0x04;
 static void write_buffer(struct tokenize_result *result, char *buf, int *blen)
 {
   buf[*blen] = '\0';
-  *blen = 0;
   if (result->redirect) {
     result->redirect_path = malloc(*blen + 1);
     strcpy(result->redirect_path, buf);
@@ -15,6 +14,7 @@ static void write_buffer(struct tokenize_result *result, char *buf, int *blen)
     result->argv[result->argc] = malloc(*blen + 1);
     strcpy(result->argv[result->argc++], buf);
   }
+  *blen = 0;
 }
 
 struct tokenize_result *tokenize(char *input)
@@ -59,11 +59,11 @@ struct tokenize_result *tokenize(char *input)
     }
 
     if (mode == 0) {
-      if ((c == 1 || c == 2) && input[i] == '>') {
-        result->redirect = c == 1 ? STDOUT : STDERR;
+      if ((c == '1' || c == '2') && input[i] == '>') {
+        result->redirect = (c == '1' ? STDOUT : STDERR);
         result->redirect_mode = OVERRIDE;
         i++;
-        if (input[i + 1] == '>') {
+        if (input[i] == '>') {
           i++;
           result->redirect_mode = APPPEND;
         }
@@ -95,7 +95,7 @@ void destruct_result(struct tokenize_result *result)
     result->argv[i] = NULL;
   }
 
-  if (result->redirect_mode != NONE) {
+  if (result->redirect != NONE) {
     free(result->redirect_path);
   }
   free(result);
