@@ -204,6 +204,7 @@ int dispatch_builtin(struct tokenize_result *result)
           perror(result->argv[0]);
           _exit(127);
         }
+        return 0;
       } else {
         return builtins[i].fn(result->argc, result->argv);
       }
