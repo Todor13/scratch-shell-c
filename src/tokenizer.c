@@ -7,7 +7,7 @@ static int escape_mask = 0x04;
 static void write_buffer(struct tokenize_result *result, char *buf, int *blen)
 {
   buf[*blen] = '\0';
-  if (result->redirect) {
+  if (result->redirect == REDIRECT_STDOUT || result->redirect == REDIRECT_STDERR) {
     result->redirect_path = malloc(*blen + 1);
     strcpy(result->redirect_path, buf);
   } else {
@@ -17,11 +17,24 @@ static void write_buffer(struct tokenize_result *result, char *buf, int *blen)
   *blen = 0;
 }
 
+static void flush_buffer_pipe(struct tokenize_result *result, char *buf, int *blen)
+{
+  result->pipe_args[result->n_pipes].argc = result->argc;
+  for (int i = 0; i < result->argc; i++) {
+    result->pipe_args[result->n_pipes].argv[i] = result->argv[i];
+  }
+  result->argc = 0;
+  result->n_pipes++;
+}
+
 struct tokenize_result *tokenize(char *input)
 {
   struct tokenize_result *result = malloc(sizeof(struct tokenize_result));
   result->argc = 0;
-  result->redirect = NONE;
+  result->redirect = REDIRECT_NONE;
+  result->redirect_path = NULL;
+  result->n_pipes = 0;
+  result->prev_read = -1;
   char buf[1024];
   int mode = 0;
   int blen = 0;
@@ -39,10 +52,18 @@ struct tokenize_result *tokenize(char *input)
       continue;
     }
 
+    if (mode == 0 && c == '|') {
+      result->redirect = REDIRECT_PIPE;
+      flush_buffer_pipe(result, buf, &blen);
+      continue;
+    }
+
     bool term = c == '\0';
     if (mode == 0 && isspace(c) > 0 || term) {
       if (term) {
         write_buffer(result, buf, &blen);
+        if (result->redirect == REDIRECT_PIPE)
+          flush_buffer_pipe(result, buf, &blen);
         break;
       }
 
@@ -60,7 +81,7 @@ struct tokenize_result *tokenize(char *input)
 
     if (mode == 0) {
       if ((c == '1' || c == '2') && input[i] == '>') {
-        result->redirect = (c == '1' ? STDOUT : STDERR);
+        result->redirect = (c == '1' ? REDIRECT_STDOUT : REDIRECT_STDERR);
         result->redirect_mode = OVERRIDE;
         i++;
         if (input[i] == '>') {
@@ -69,7 +90,7 @@ struct tokenize_result *tokenize(char *input)
         }
       }
       if (c == '>') {
-        result->redirect = STDOUT;
+        result->redirect = REDIRECT_STDOUT;
         result->redirect_mode = OVERRIDE;
         if (input[i] == '>') {
           i++;
@@ -95,7 +116,7 @@ void destruct_result(struct tokenize_result *result)
     result->argv[i] = NULL;
   }
 
-  if (result->redirect != NONE) {
+  if (result->redirect_path != NULL) {
     free(result->redirect_path);
   }
   free(result);
