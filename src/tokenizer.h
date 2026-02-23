@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 
 #define N_PIPES 64
 #define N_ARGV 64
@@ -33,6 +34,7 @@ struct tokenize_result {
     int pipefd[2];
     int current_pipe;
     int prev_read;
+    pid_t pids[N_PIPES];
 };
 
 struct tokenize_result *tokenize(char *input);

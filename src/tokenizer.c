@@ -35,6 +35,8 @@ struct tokenize_result *tokenize(char *input)
   result->redirect_path = NULL;
   result->n_pipes = 0;
   result->prev_read = -1;
+  result->pipefd[0] = -1;
+  result->pipefd[1] = -1;
   char buf[1024];
   int mode = 0;
   int blen = 0;

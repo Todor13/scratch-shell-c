@@ -178,6 +178,17 @@ void pipe_setup(struct tokenize_result *result)
   }
 }
 
+void pipe_close(struct tokenize_result *result)
+{
+  if (result->prev_read != -1)
+    close(result->prev_read);
+
+  if (result->current_pipe < result->n_pipes - 1) {
+    close(result->pipefd[1]);
+    result->prev_read = result->pipefd[0];
+  }
+}
+
 int dispatch_builtin(struct tokenize_result *result)
 {
   for (int i = 0; builtins[i].name; i++) {
@@ -200,10 +211,10 @@ int dispatch_builtin(struct tokenize_result *result)
         pid_t pid = fork();
         if (pid == 0) {
           pipe_setup(result);
-          execvp(result->argv[0], result->argv);
-          perror(result->argv[0]);
+          builtins[i].fn(result->argc, result->argv);
           _exit(127);
         }
+        result->pids[result->current_pipe] = pid;
         return 0;
       } else {
         return builtins[i].fn(result->argc, result->argv);
@@ -238,6 +249,7 @@ int dispatch_executable(struct tokenize_result *result)
       perror("fork");
       return 1;
     }
+    result->pids[result->current_pipe] = pid;
 
     int status;
     if (result->redirect != REDIRECT_PIPE && waitpid(pid, &status, 0) < 0) {
@@ -264,27 +276,31 @@ int dispatch(struct tokenize_result *result)
       }
       result->argv[j] = NULL;
 
-      pipe(result->pipefd);
+      if (pipe(result->pipefd) < 0) {
+        perror("pipe");
+        exit(1);
+      }
 
       int s;
       if ((s = dispatch_builtin(result)) > -1) {
         status = s;
+        pipe_close(result);
+        continue;
       }
 
       if ((s = dispatch_executable(result)) > -1) {
         status = s;
       }
 
-      if (result->prev_read != -1)
-        close(result->prev_read);
-
-      if (i < result->n_pipes - 1) {
-        close(result->pipefd[1]);
-        result->prev_read = result->pipefd[0];
-      }
+      pipe_close(result);
     }
-    while (wait(NULL) > 0);
-    return 0;
+
+    for (int i = 0; i < result->n_pipes; i++) {
+      int st;
+      waitpid(result->pids[i], &st, 0);
+    }
+    
+    return status;
   }
 
   if ((status = dispatch_builtin(result)) > -1) {
