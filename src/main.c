@@ -93,7 +93,10 @@ int builtin_cd(int argc, char **argv)
 
 int builtin_history(int argc, char **argv)
 {
-  for (int i = 0; i < history_idx; i++) {
+  int i = 0;
+  if (argc > 1)
+    i = history_idx - atoi(argv[1]);
+  for (i; i < history_idx; i++) {
     printf("  %d %s\n", i, history[i]);
   }
 }
