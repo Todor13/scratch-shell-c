@@ -113,13 +113,20 @@ struct tokenize_result *tokenize(char *input)
 
 void destruct_result(struct tokenize_result *result)
 {
-  for (int i = 0; result->argv[i] != NULL; i++) {
-    free(result->argv[i]);
-    result->argv[i] = NULL;
+  if (result->n_pipes != 0) {
+    for (int i = 0; i < result->n_pipes; i++) {
+      for (int j = 0; j < result->pipe_args[i].argc; j++) 
+        free(result->pipe_args[i].argv[j]);
+    }
+  } else {
+    for (int i = 0; i < result->argc; i++) {
+      free(result->argv[i]);
+    }
+
+    if (result->redirect_path != NULL) {
+      free(result->redirect_path);
+    }
   }
 
-  if (result->redirect_path != NULL) {
-    free(result->redirect_path);
-  }
   free(result);
 }

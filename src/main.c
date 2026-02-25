@@ -85,6 +85,11 @@ int builtin_cd(int argc, char **argv)
   return 0;
 }
 
+int builtin_history(int argc, char **argv)
+{
+  return 0;
+}
+
 // clang-format off
 struct builtin builtins[] = {
   { "echo", builtin_echo }, 
@@ -92,6 +97,7 @@ struct builtin builtins[] = {
   { "exit", builtin_exit }, 
   { "pwd", builtin_pwd },
   { "cd", builtin_cd },
+  { "history", builtin_history},
   { NULL, NULL }
 };
 // clang-format on
@@ -340,7 +346,7 @@ int main(int argc, char *argv[])
       printf("%s: command not found\n", line);
     }
 
-    // destruct_result(result);
+    destruct_result(result);
   }
 
   free(line);
