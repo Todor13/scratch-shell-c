@@ -4,9 +4,12 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "tokenizer.h"
+
+#define MAX_HISTORY 1024
 
 const int MAX_ARGS = 32;
 
@@ -17,6 +20,9 @@ struct builtin
   const char *name;
   builtin_fn fn;
 };
+
+char *history[MAX_HISTORY];
+int history_idx = 0;
 
 int builtin_echo(int argc, char **argv)
 {
@@ -87,7 +93,9 @@ int builtin_cd(int argc, char **argv)
 
 int builtin_history(int argc, char **argv)
 {
-  return 0;
+  for (int i = 0; i < history_idx; i++) {
+    printf("  %d %s\n", i, history[i]);
+  }
 }
 
 // clang-format off
@@ -305,7 +313,7 @@ int dispatch(struct tokenize_result *result)
       int st;
       waitpid(result->pids[i], &st, 0);
     }
-    
+
     return status;
   }
 
@@ -319,6 +327,73 @@ int dispatch(struct tokenize_result *result)
 
   return -1;
 }
+
+//--------Input--------
+
+const int BUFFER_SIZE = 1024;
+static struct termios default_termios;
+
+void enable_raw_mode()
+{
+  tcgetattr(STDIN_FILENO, &default_termios);
+  struct termios raw_termios = default_termios;
+  raw_termios.c_lflag &= ~(ICANON | ECHO);
+  raw_termios.c_cc[VMIN] = 1;
+  raw_termios.c_cc[VTIME] = 0;
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw_termios);
+}
+
+void disable_raw_mode()
+{
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &default_termios);
+}
+
+void redraw_line(const char *buf)
+{
+  write(STDOUT_FILENO, "\r", 1);
+  write(STDOUT_FILENO, "\033[2K", 4);
+  write(STDOUT_FILENO, "$ ", 2);
+  write(STDOUT_FILENO, buf, strlen(buf));
+}
+
+char *read_line()
+{
+  enable_raw_mode();
+  char *buffer = malloc(BUFFER_SIZE);
+  int len = 0;
+  buffer[0] = '\0';
+  write(STDOUT_FILENO, "$ ", 2);
+
+  for (;;) {
+    char c;
+    read(STDIN_FILENO, &c, 1);
+
+    if (c == '\n' || c == '\r') {
+      buffer[len] = '\0';
+      write(STDOUT_FILENO, "\n", 1);
+      break;
+    }
+
+    else if (c == 27) {
+      char seq[2];
+      read(STDIN_FILENO, &seq[0], 1);
+      read(STDIN_FILENO, &seq[1], 1);
+
+      if (seq[0] == '[') {
+        if (seq[1] == 'A') {
+          //up
+        } else if (seq[1] == 'B') {
+          //down
+        } else if (seq[1] == 'C') {
+          //right
+        } else if (seq[1] == 'D') {
+          //left
+        }
+      }
+    }
+  }
+}
+//------END Input------
 
 int main(int argc, char *argv[])
 {
@@ -339,6 +414,8 @@ int main(int argc, char *argv[])
 
     if (nread > 0 && line[nread - 1] == '\n')
       line[nread - 1] = '\0';
+
+    history[history_idx++] = strdup(line);
 
     struct tokenize_result *result = tokenize(line);
 
