@@ -38,6 +38,6 @@ struct tokenize_result {
 };
 
 struct tokenize_result *tokenize(char *input);
-void destruct_result(struct tokenize_result *result);
+void free_tokenize_result(struct tokenize_result *result);
 
 #endif

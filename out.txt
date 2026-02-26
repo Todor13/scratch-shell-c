@@ -1,3 +1,2 @@
-{
-  "dependencies": []
-}
+echo hello
+echo world

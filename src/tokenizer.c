@@ -111,7 +111,7 @@ struct tokenize_result *tokenize(char *input)
   return result;
 }
 
-void destruct_result(struct tokenize_result *result)
+void free_tokenize_result(struct tokenize_result *result)
 {
   if (result->n_pipes != 0) {
     for (int i = 0; i < result->n_pipes; i++) {

@@ -4,12 +4,9 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <termios.h>
-#include <unistd.h>
 
+#include "input.h"
 #include "tokenizer.h"
-
-#define MAX_HISTORY 1024
 
 const int MAX_ARGS = 32;
 
@@ -20,10 +17,6 @@ struct builtin
   const char *name;
   builtin_fn fn;
 };
-
-char *history[MAX_HISTORY];
-int history_idx = 0;
-int history_arrow_idx = 0;
 
 int builtin_echo(int argc, char **argv)
 {
@@ -52,6 +45,7 @@ int builtin_type(int argc, char **argv);
 
 int builtin_exit(int argc, char **argv)
 {
+  free_history();
   exit(0);
 }
 
@@ -92,14 +86,47 @@ int builtin_cd(int argc, char **argv)
   return 0;
 }
 
+int parse_int(const char *s, int *out)
+{
+  char *end;
+  long parsed = strtol(s, &end, 10);
+  if (s == end || *end != '\0')
+    return 0;
+
+  *out = (int)parsed;
+  return 1;
+}
+
 int builtin_history(int argc, char **argv)
 {
   int i = 0;
-  if (argc > 1)
-    i = history_idx - atoi(argv[1]);
-  for (i; i < history_idx; i++) {
+  int len;
+  char **history = read_history(&len);
+  if (argc > 2 && *argv[1] == '-') {
+    if (argv[1][1] == 'r' && argv[2]) {
+      FILE *fp = fopen(argv[2], "r");
+      if (!fp)
+        return 1;
+
+      char buffer[1024];
+      while (fgets(buffer, sizeof(buffer), fp)) {
+        buffer[strcspn(buffer, "\n")] = '\0';
+        write_history(strdup(buffer));
+      }
+      return 0;
+    } else if (argv[1][1] == 'w' && argv[2]) {
+    }
+  }
+
+  int limit;
+  if (argc > 1 && parse_int(argv[1], &limit))
+    i = len - limit;
+
+  for (i; i < len; i++) {
     printf("  %d %s\n", i, history[i]);
   }
+
+  return 0;
 }
 
 // clang-format off
@@ -332,105 +359,6 @@ int dispatch(struct tokenize_result *result)
   return -1;
 }
 
-//--------Input--------
-
-const int BUFFER_SIZE = 1024;
-static struct termios default_termios;
-
-void enable_raw_mode()
-{
-  tcgetattr(STDIN_FILENO, &default_termios);
-  struct termios raw_termios = default_termios;
-  raw_termios.c_lflag &= ~(ICANON | ECHO);
-  raw_termios.c_cc[VMIN] = 1;
-  raw_termios.c_cc[VTIME] = 0;
-  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw_termios);
-}
-
-void disable_raw_mode()
-{
-  tcsetattr(STDIN_FILENO, TCSAFLUSH, &default_termios);
-}
-
-void redraw_line(const char *buf)
-{
-  write(STDOUT_FILENO, "\r", 1);
-  write(STDOUT_FILENO, "\033[2K", 4);
-  write(STDOUT_FILENO, "$ ", 2);
-  write(STDOUT_FILENO, buf, strlen(buf));
-}
-
-char *read_line()
-{
-  enable_raw_mode();
-  char *buffer = malloc(BUFFER_SIZE);
-  int len = 0;
-  buffer[0] = '\0';
-  write(STDOUT_FILENO, "$ ", 2);
-
-  for (;;) {
-    char c;
-    read(STDIN_FILENO, &c, 1);
-
-    if (c == '\n' || c == '\r') {
-      buffer[len] = '\0';
-      write(STDOUT_FILENO, "\n", 1);
-      history_arrow_idx = 0;
-      break;
-    } else if (c == 27) {
-      char seq[2];
-      read(STDIN_FILENO, &seq[0], 1);
-      read(STDIN_FILENO, &seq[1], 1);
-
-      if (seq[0] == '[') {
-        if (seq[1] == 'A') {
-          // up
-          if (history_idx > 0) {
-            if (history_arrow_idx - 1 < 0) {
-              history_arrow_idx = history_idx - 1;
-            } else {
-              history_arrow_idx--;
-            }
-
-            char *record = history[history_arrow_idx];
-            strcpy(buffer, record);
-            len = strlen(record);
-            redraw_line(record);
-          }
-        } else if (seq[1] == 'B') {
-          // down
-          if (history_idx > 0) {
-            if (history_arrow_idx + 1 > history_idx - 1) {
-              history_arrow_idx = 0;
-            } else {
-              history_arrow_idx++;
-            }
-
-            char *record = history[history_arrow_idx];
-            strcpy(buffer, record);
-            len = strlen(record);
-            redraw_line(record);
-          }
-        } else if (seq[1] == 'C') {
-          // right
-        } else if (seq[1] == 'D') {
-          // left
-        }
-      }
-    } else {
-      if (len < BUFFER_SIZE - 1) {
-        buffer[len++] = c;
-        buffer[len] = '\0';
-        write(STDOUT_FILENO, &c, 1);
-      }
-    }
-  }
-
-  disable_raw_mode();
-  return buffer;
-}
-//------END Input------
-
 int main(int argc, char *argv[])
 {
   setbuf(stdout, NULL);
@@ -440,15 +368,17 @@ int main(int argc, char *argv[])
   for (;;) {
     line = read_line();
 
-    history[history_idx++] = strdup(line);
+    if (line[0] != '\0') {
+      write_history(strdup(line));
 
-    struct tokenize_result *result = tokenize(line);
+      struct tokenize_result *result = tokenize(line);
 
-    if (dispatch(result) == -1) {
-      printf("%s: command not found\n", line);
+      if (dispatch(result) == -1) {
+        printf("%s: command not found\n", line);
+      }
+
+      free_tokenize_result(result);
     }
-
-    destruct_result(result);
   }
 
   free(line);
