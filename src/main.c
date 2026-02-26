@@ -23,6 +23,7 @@ struct builtin
 
 char *history[MAX_HISTORY];
 int history_idx = 0;
+int history_arrow_idx = 0;
 
 int builtin_echo(int argc, char **argv)
 {
@@ -374,27 +375,47 @@ char *read_line()
     if (c == '\n' || c == '\r') {
       buffer[len] = '\0';
       write(STDOUT_FILENO, "\n", 1);
+      history_arrow_idx = 0;
       break;
-    }
-
-    else if (c == 27) {
+    } else if (c == 27) {
       char seq[2];
       read(STDIN_FILENO, &seq[0], 1);
       read(STDIN_FILENO, &seq[1], 1);
 
       if (seq[0] == '[') {
         if (seq[1] == 'A') {
-          //up
+          // up
+          if (history_idx > 0) {
+            if (history_arrow_idx - 1 < 0) {
+              history_arrow_idx = history_idx - 1;
+            } else {
+              history_arrow_idx--;
+            }
+
+            char *record = history[history_arrow_idx];
+            strcpy(buffer, record);
+            len = strlen(record);
+            redraw_line(record);
+          }
         } else if (seq[1] == 'B') {
-          //down
+          // down
         } else if (seq[1] == 'C') {
-          //right
+          // right
         } else if (seq[1] == 'D') {
-          //left
+          // left
         }
+      }
+    } else {
+      if (len < BUFFER_SIZE - 1) {
+        buffer[len++] = c;
+        buffer[len] = '\0';
+        write(STDOUT_FILENO, &c, 1);
       }
     }
   }
+
+  disable_raw_mode();
+  return buffer;
 }
 //------END Input------
 
@@ -403,20 +424,9 @@ int main(int argc, char *argv[])
   setbuf(stdout, NULL);
   char *line = NULL;
   size_t len = 0;
-  __ssize_t nread;
 
   for (;;) {
-    printf("$ ");
-    nread = getline(&line, &len, stdin);
-
-    if (nread == -1) {
-      perror("getline");
-      free(line);
-      return 1;
-    }
-
-    if (nread > 0 && line[nread - 1] == '\n')
-      line[nread - 1] = '\0';
+    line = read_line();
 
     history[history_idx++] = strdup(line);
 
