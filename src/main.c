@@ -399,6 +399,18 @@ char *read_line()
           }
         } else if (seq[1] == 'B') {
           // down
+          if (history_idx > 0) {
+            if (history_arrow_idx + 1 > history_idx - 1) {
+              history_arrow_idx = 0;
+            } else {
+              history_arrow_idx++;
+            }
+
+            char *record = history[history_arrow_idx];
+            strcpy(buffer, record);
+            len = strlen(record);
+            redraw_line(record);
+          }
         } else if (seq[1] == 'C') {
           // right
         } else if (seq[1] == 'D') {
