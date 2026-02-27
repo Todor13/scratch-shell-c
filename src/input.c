@@ -68,13 +68,21 @@ int write_history_fd(char *path, char *mode)
     i = append_idx;
     append_idx = history_idx;
   }
-  
+
   for (i; i < history_idx; i++) {
     fprintf(fp, "%s\n", history[i]);
   }
 
   fclose(fp);
   return 0;
+}
+
+void load_env_history()
+{
+  char *histfile_env = getenv("HISTFILE");
+  if (histfile_env != NULL) {
+    read_history_fd(histfile_env);
+  }
 }
 
 char *read_line()

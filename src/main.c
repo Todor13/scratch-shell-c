@@ -360,6 +360,7 @@ int main(int argc, char *argv[])
   setbuf(stdout, NULL);
   char *line = NULL;
   size_t len = 0;
+  load_env_history();
 
   for (;;) {
     line = read_line();
