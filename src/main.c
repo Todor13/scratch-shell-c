@@ -45,6 +45,7 @@ int builtin_type(int argc, char **argv);
 
 int builtin_exit(int argc, char **argv)
 {
+  persist_env_history();
   free_history();
   exit(0);
 }

@@ -15,6 +15,7 @@ void write_history(char *line);
 int read_history_fd(char *path);
 int write_history_fd(char *path, char *mode);
 void load_env_history();
+void persist_env_history();
 void free_history();
 
 #endif

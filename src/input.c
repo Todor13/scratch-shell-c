@@ -85,6 +85,14 @@ void load_env_history()
   }
 }
 
+void persist_env_history()
+{
+  char *histfile_env = getenv("HISTFILE");
+  if (histfile_env != NULL) {
+    write_history_fd(histfile_env, "w");
+  }
+}
+
 char *read_line()
 {
   enable_raw_mode();
