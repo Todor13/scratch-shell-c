@@ -104,18 +104,14 @@ int builtin_history(int argc, char **argv)
   char **history = read_history(&len);
   if (argc > 2 && *argv[1] == '-') {
     if (argv[1][1] == 'r' && argv[2]) {
-      FILE *fp = fopen(argv[2], "r");
-      if (!fp)
-        return 1;
-
-      char buffer[1024];
-      while (fgets(buffer, sizeof(buffer), fp)) {
-        buffer[strcspn(buffer, "\n")] = '\0';
-        write_history(strdup(buffer));
-      }
+      read_history_fd(argv[2]);
       return 0;
-    } else if (argv[1][1] == 'w' && argv[2]) {
+    } else if ((argv[1][1] == 'w' || argv[1][1] == 'a') && argv[2]) {
+      char mode[2] = {argv[1][1], '\0'};
+      write_history_fd(argv[2], mode);
+      return 0;
     }
+    return 1;
   }
 
   int limit;

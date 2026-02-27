@@ -41,6 +41,36 @@ void write_history(char *line)
   history[history_idx++] = line;
 }
 
+int read_history_fd(char *path)
+{
+  FILE *fp = fopen(path, "r");
+  if (!fp)
+    return 1;
+
+  char buffer[1024];
+  while (fgets(buffer, sizeof(buffer), fp)) {
+    buffer[strcspn(buffer, "\n")] = '\0';
+    write_history(strdup(buffer));
+  }
+
+  fclose(fp);
+  return 0;
+}
+
+int write_history_fd(char *path, char *mode) 
+{
+  FILE *fp = fopen(path, mode);
+  if (!fp)
+    return 1;
+
+  for (int i = 0; i < history_idx; i++) {
+    fprintf(fp, "%s\n", history[i]);
+  }
+
+  fclose(fp);
+  return 0;
+}
+
 char *read_line()
 {
   enable_raw_mode();
@@ -117,7 +147,7 @@ char *read_line()
   return buffer;
 }
 
-void free_history() 
+void free_history()
 {
   for (int i = 0; i < history_idx; i++) {
     free(history[i]);
