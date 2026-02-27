@@ -1,12 +1,23 @@
 1
 2
-3
-4
-5
-history -w ./out.txt
-5
-4
-3
-2
+new
+history -a ./out.txt
+new
+history -a ./out.txt
+history -a ./out.txt
+new
+history -a ./out.txt
+history -a ./out.txt
+history -a ./out.txt
+new
+history -a ./out.txt
+history -a ./out.txt
+history -a ./out.txt
+history -a ./out.txt
 1
+2
+3
+4
+history -a ./out.txt
+history -a ./out.txt
 history -a ./out.txt

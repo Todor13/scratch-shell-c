@@ -3,6 +3,7 @@
 char *history[MAX_HISTORY];
 int history_idx = 0;
 int history_arrow_idx = 0;
+int append_idx = 0;
 
 const int BUFFER_SIZE = 1024;
 static struct termios default_termios;
@@ -57,13 +58,18 @@ int read_history_fd(char *path)
   return 0;
 }
 
-int write_history_fd(char *path, char *mode) 
+int write_history_fd(char *path, char *mode)
 {
   FILE *fp = fopen(path, mode);
   if (!fp)
     return 1;
-
-  for (int i = 0; i < history_idx; i++) {
+  int i = 0;
+  if (mode[0] == 'a') {
+    i = append_idx;
+    append_idx = history_idx;
+  }
+  
+  for (i; i < history_idx; i++) {
     fprintf(fp, "%s\n", history[i]);
   }
 
