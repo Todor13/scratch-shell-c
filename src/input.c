@@ -1,10 +1,5 @@
 #include "input.h"
 
-char *history[MAX_HISTORY];
-int history_idx = 0;
-int history_arrow_idx = 0;
-int append_idx = 0;
-
 const int BUFFER_SIZE = 1024;
 static struct termios default_termios;
 
@@ -31,65 +26,27 @@ static void redraw_line(const char *buf)
   write(STDOUT_FILENO, buf, strlen(buf));
 }
 
-char **read_history(int *out_n)
+static void redraw_from_history(char *buffer, int *len)
 {
-  *out_n = history_idx;
-  return history;
+  char *record = read_history();
+  strcpy(buffer, record);
+  *len = strlen(record);
+  redraw_line(record);
 }
 
-void write_history(char *line)
+void autocomplete(char *input, int *len, int tab_count)
 {
-  history[history_idx++] = line;
-}
-
-int read_history_fd(char *path)
-{
-  FILE *fp = fopen(path, "r");
-  if (!fp)
-    return 1;
-
-  char buffer[1024];
-  while (fgets(buffer, sizeof(buffer), fp)) {
-    buffer[strcspn(buffer, "\n")] = '\0';
-    write_history(strdup(buffer));
+  int idx = 0;
+  const char *candidates[1024];
+  for (int i = 0; builtins[i].name != NULL; i++) {
+    if (strncmp(input, builtins[i].name, *len) == 0) {
+      candidates[idx++] = builtins[i].name;
+    }
   }
 
-  fclose(fp);
-  return 0;
-}
-
-int write_history_fd(char *path, char *mode)
-{
-  FILE *fp = fopen(path, mode);
-  if (!fp)
-    return 1;
-  int i = 0;
-  if (mode[0] == 'a') {
-    i = append_idx;
-    append_idx = history_idx;
-  }
-
-  for (i; i < history_idx; i++) {
-    fprintf(fp, "%s\n", history[i]);
-  }
-
-  fclose(fp);
-  return 0;
-}
-
-void load_env_history()
-{
-  char *histfile_env = getenv("HISTFILE");
-  if (histfile_env != NULL) {
-    read_history_fd(histfile_env);
-  }
-}
-
-void persist_env_history()
-{
-  char *histfile_env = getenv("HISTFILE");
-  if (histfile_env != NULL) {
-    write_history_fd(histfile_env, "w");
+  if (idx == 1) {
+    *len = strlen(candidates[0]) + 1;
+    snprintf(input, *len + 2, "%s ", candidates[0]); // strcpy(input, candidates[0]);
   }
 }
 
@@ -100,10 +57,17 @@ char *read_line()
   int len = 0;
   buffer[0] = '\0';
   write(STDOUT_FILENO, "$ ", 2);
+  int tab_count = 0;
 
   for (;;) {
     char c;
     read(STDIN_FILENO, &c, 1);
+
+    if (c == '\t') {
+      autocomplete(buffer, &len, tab_count++);
+      redraw_line(buffer);
+      continue;
+    }
 
     if (c == '\n' || c == '\r') {
       buffer[len] = '\0';
@@ -125,10 +89,7 @@ char *read_line()
               history_arrow_idx--;
             }
 
-            char *record = history[history_arrow_idx];
-            strcpy(buffer, record);
-            len = strlen(record);
-            redraw_line(record);
+            redraw_from_history(buffer, &len);
           }
         } else if (seq[1] == 'B') {
           // down
@@ -139,10 +100,7 @@ char *read_line()
               history_arrow_idx++;
             }
 
-            char *record = history[history_arrow_idx];
-            strcpy(buffer, record);
-            len = strlen(record);
-            redraw_line(record);
+            redraw_from_history(buffer, &len);
           }
         } else if (seq[1] == 'C') {
           // right
@@ -163,15 +121,9 @@ char *read_line()
         write(STDOUT_FILENO, &c, 1);
       }
     }
+    tab_count = 0;
   }
 
   disable_raw_mode();
   return buffer;
-}
-
-void free_history()
-{
-  for (int i = 0; i < history_idx; i++) {
-    free(history[i]);
-  }
 }
