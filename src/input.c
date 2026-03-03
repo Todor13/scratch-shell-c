@@ -34,7 +34,7 @@ static void redraw_from_history(char *buffer, int *len)
   redraw_line(record);
 }
 
-void autocomplete(char *input, int *len, int tab_count)
+int autocomplete(char *input, int *len, int tab_count)
 {
   int idx = 0;
   const char *candidates[1024];
@@ -47,7 +47,10 @@ void autocomplete(char *input, int *len, int tab_count)
   if (idx == 1) {
     *len = strlen(candidates[0]) + 1;
     snprintf(input, *len + 2, "%s ", candidates[0]); // strcpy(input, candidates[0]);
+    return 0;
   }
+
+  return -1;
 }
 
 char *read_line()
@@ -64,7 +67,11 @@ char *read_line()
     read(STDIN_FILENO, &c, 1);
 
     if (c == '\t') {
-      autocomplete(buffer, &len, tab_count++);
+      if (autocomplete(buffer, &len, tab_count++) == -1) {
+        write(STDOUT_FILENO, "\x07", 1);
+        continue;
+      }
+      
       redraw_line(buffer);
       continue;
     }
