@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "history.h"
+#include "exec.h"
 
 typedef int (*builtin_fn)(int argc, char **argv);
 

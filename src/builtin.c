@@ -117,3 +117,22 @@ int builtin_history(int argc, char **argv)
 
   return 0;
 }
+
+int builtin_type(int argc, char **argv)
+{
+  for (int i = 0; builtins[i].name; i++) {
+    if (strcmp(argv[1], builtins[i].name) == 0) {
+      printf("%s is a shell builtin\n", argv[1]);
+      return 0;
+    }
+  }
+
+  char fullpath[1024];
+  if (find_executable(argv[1], fullpath, sizeof(fullpath)) == 0) {
+    printf("%s is %s\n", argv[1], fullpath);
+    return 0;
+  }
+
+  printf("%s not found\n", argv[1]);
+  return 1;
+}

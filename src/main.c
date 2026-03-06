@@ -1,64 +1,8 @@
-#include <fcntl.h>
-#include <stdbool.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
+#include "builtin.h"
 #include "input.h"
 #include "tokenizer.h"
-#include "builtin.h"
 
 const int MAX_ARGS = 32;
-
-int find_executable(const char *cmd, char *out, size_t outsz)
-{
-  if (!cmd)
-    return 1;
-
-  const char *path = getenv("PATH");
-  if (!path)
-    return 1;
-
-  char *copy = strdup(path);
-  if (!copy)
-    return 1;
-
-  char *saveptr = NULL;
-  for (char *dir = __strtok_r(copy, ":", &saveptr); dir; dir = __strtok_r(NULL, ":", &saveptr)) {
-    if (*dir == '\0')
-      dir = ".";
-
-    int n = snprintf(out, outsz, "%s/%s", dir, cmd);
-    if (n < 0 || (size_t)n >= outsz)
-      continue;
-
-    if (access(out, X_OK) == 0) {
-      free(copy);
-      return 0;
-    }
-  }
-
-  free(copy);
-  return -1;
-}
-
-int builtin_type(int argc, char **argv)
-{
-  for (int i = 0; builtins[i].name; i++) {
-    if (strcmp(argv[1], builtins[i].name) == 0) {
-      printf("%s is a shell builtin\n", argv[1]);
-      return 0;
-    }
-  }
-
-  char fullpath[1024];
-  if (find_executable(argv[1], fullpath, sizeof fullpath) == 0) {
-    printf("%s is %s\n", argv[1], fullpath);
-    return 0;
-  }
-
-  printf("%s not found\n", argv[1]);
-  return 1;
-}
 
 void redirect(struct tokenize_result *result)
 {
@@ -139,41 +83,36 @@ int dispatch_builtin(struct tokenize_result *result)
 
 int dispatch_executable(struct tokenize_result *result)
 {
-  char fullpath[1024];
-  if (find_executable(result->argv[0], fullpath, sizeof fullpath) == 0) {
-    char *cmd = result->argv[0];
-    pid_t pid = fork();
-    if (pid == 0) {
-      if (result->redirect == REDIRECT_STDERR || result->redirect == REDIRECT_STDOUT) {
-        redirect(result);
-      } else if (result->redirect == REDIRECT_PIPE) {
-        pipe_setup(result);
+  char *cmd = result->argv[0];
+  pid_t pid = fork();
+  if (pid == 0) {
+    if (result->redirect == REDIRECT_STDERR || result->redirect == REDIRECT_STDOUT) {
+      redirect(result);
+    } else if (result->redirect == REDIRECT_PIPE) {
+      pipe_setup(result);
+    }
+
+    execvp(cmd, result->argv);
+    exit(127);
+  }
+  if (pid < 0) {
+    perror("fork");
+    return 1;
+  }
+  result->pids[result->current_pipe] = pid;
+
+  int status;
+  if (result->redirect != REDIRECT_PIPE) {
+    waitpid(pid, &status, 0);
+    if (WIFEXITED(status)) {
+      int code = WEXITSTATUS(status);
+      if (code == 127) {
+        return -1;
       }
-
-      if (strchr(cmd, '/')) {
-        execv(cmd, result->argv);
-      } else {
-        execvp(cmd, result->argv);
-      }
-      perror(cmd);
-      _exit(127);
     }
-    if (pid < 0) {
-      perror("fork");
-      return 1;
-    }
-    result->pids[result->current_pipe] = pid;
-
-    int status;
-    if (result->redirect != REDIRECT_PIPE && waitpid(pid, &status, 0) < 0) {
-      perror("waitpid");
-      return 1;
-    }
-
-    return 0;
   }
 
-  return -1;
+  return 0;
 }
 
 int dispatch(struct tokenize_result *result)

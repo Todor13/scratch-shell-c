@@ -37,17 +37,28 @@ static void redraw_from_history(char *buffer, int *len)
 int autocomplete(char *input, int *len, int tab_count)
 {
   int idx = 0;
-  const char *candidates[1024];
+  char *candidates[1024];
   for (int i = 0; builtins[i].name != NULL; i++) {
     if (strncmp(input, builtins[i].name, *len) == 0) {
-      candidates[idx++] = builtins[i].name;
+      candidates[idx++] = strdup(builtins[i].name);
     }
+  }
+
+  char *executables[1024];
+  int found_count = find_executables(input, executables, 1024);
+  for (int i = 0; i < found_count; i++) {
+    if (exists(candidates, idx, executables[i]) == 0)
+      candidates[idx++] = executables[i];
   }
 
   if (idx == 1) {
     *len = strlen(candidates[0]) + 1;
-    snprintf(input, *len + 2, "%s ", candidates[0]); // strcpy(input, candidates[0]);
+    snprintf(input, *len + 2, "%s ", candidates[0]);
     return 0;
+  }
+
+  for (int i = 0; i < idx; i++) {
+    free(candidates[i]);
   }
 
   return -1;
@@ -71,7 +82,7 @@ char *read_line()
         write(STDOUT_FILENO, "\x07", 1);
         continue;
       }
-      
+
       redraw_line(buffer);
       continue;
     }
