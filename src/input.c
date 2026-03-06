@@ -39,12 +39,12 @@ static int cmp_str(const void *a, const void *b)
   return strcmp(*(char *const *)a, *(char *const *)b);
 }
 
-static int longest_common_prefix(char *prefix, char **candidates, int count)
+static int longest_common_prefix(char *prefix, int *len, char **candidates, int count)
 {
   int res = -1;
   bool cond = true;
   int idx = strlen(prefix);
-  while (cond) {
+  for (;;) {
     char c = candidates[0][idx];
     for (int i = 1; i < count; i++) {
       if (c != candidates[i][idx]) {
@@ -52,10 +52,15 @@ static int longest_common_prefix(char *prefix, char **candidates, int count)
         break;
       }
     }
+
+    if (!cond)
+      break;
+
     prefix[idx++] = c;
     res = 0;
   }
   prefix[idx] = '\0';
+  *len = strlen(prefix);
   return res;
 }
 
@@ -96,7 +101,7 @@ int autocomplete(char *buffer, int *len, int tab_count)
     write(STDOUT_FILENO, "\n", 1);
   }
 
-  if (count > 1 && tab_count == 0 && longest_common_prefix(buffer, candidates, count) == -1) {
+  if (count > 1 && tab_count == 0 && longest_common_prefix(buffer, len, candidates, count) == -1) {
     res = -1;
   }
 
