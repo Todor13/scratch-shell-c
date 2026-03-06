@@ -36,54 +36,75 @@ static void redraw_from_history(char *buffer, int *len)
 
 static int cmp_str(const void *a, const void *b)
 {
-  return strcmp(*(char * const *)a, *(char * const *)b);
+  return strcmp(*(char *const *)a, *(char *const *)b);
 }
 
-int autocomplete(char *input, int *len, int tab_count)
+static int longest_common_prefix(char *prefix, char **candidates, int count)
 {
-  int idx = 0;
+  int res = -1;
+  bool cond = true;
+  int idx = strlen(prefix);
+  while (cond) {
+    char c = candidates[0][idx];
+    for (int i = 1; i < count; i++) {
+      if (c != candidates[i][idx]) {
+        cond = false;
+        break;
+      }
+    }
+    prefix[idx++] = c;
+    res = 0;
+  }
+  prefix[idx] = '\0';
+  return res;
+}
+
+int autocomplete(char *buffer, int *len, int tab_count)
+{
+  int count = 0;
   char *candidates[1024];
   for (int i = 0; builtins[i].name != NULL; i++) {
-    if (strncmp(input, builtins[i].name, *len) == 0) {
-      candidates[idx++] = strdup(builtins[i].name);
+    if (strncmp(buffer, builtins[i].name, *len) == 0) {
+      candidates[count++] = strdup(builtins[i].name);
     }
   }
 
   char *executables[1024];
-  int found_count = find_executables(input, executables, 1024);
+  int found_count = find_executables(buffer, executables, 1024);
   for (int i = 0; i < found_count; i++) {
-    if (exists(candidates, idx, executables[i]) == 0)
-      candidates[idx++] = executables[i];
+    if (exists(candidates, count, executables[i]) == 0)
+      candidates[count++] = executables[i];
   }
 
   int res = 0;
-    if (idx == 0) {
+  if (count == 0) {
     res = -1;
   }
 
-  if (idx == 1) {
+  if (count == 1) {
     *len = strlen(candidates[0]) + 1;
-    snprintf(input, *len + 2, "%s ", candidates[0]);
+    snprintf(buffer, *len + 2, "%s ", candidates[0]);
   }
 
-  if (idx > 1 && tab_count > 0) {
-    qsort(candidates, idx, sizeof(char *), cmp_str);
+  if (count > 1 && tab_count > 0) {
+    qsort(candidates, count, sizeof(char *), cmp_str);
     write(STDOUT_FILENO, "\n", 1);
-    for (int i = 0; i < idx; i++) {
+    for (int i = 0; i < count; i++) {
       write(STDOUT_FILENO, candidates[i], strlen(candidates[i]));
       write(STDOUT_FILENO, "  ", 2);
     }
     write(STDOUT_FILENO, "\n", 1);
   }
 
-  if (idx > 1 && tab_count == 0)
+  if (count > 1 && tab_count == 0 && longest_common_prefix(buffer, candidates, count) == -1) {
     res = -1;
+  }
 
-  for (int i = 0; i < idx; i++) {
+  for (int i = 0; i < count; i++) {
     free(candidates[i]);
   }
 
-  return -1;
+  return res;
 }
 
 char *read_line()
