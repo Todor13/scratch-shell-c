@@ -34,6 +34,11 @@ static void redraw_from_history(char *buffer, int *len)
   redraw_line(record);
 }
 
+static int cmp_str(const void *a, const void *b)
+{
+  return strcmp(*(char * const *)a, *(char * const *)b);
+}
+
 int autocomplete(char *input, int *len, int tab_count)
 {
   int idx = 0;
@@ -51,11 +56,28 @@ int autocomplete(char *input, int *len, int tab_count)
       candidates[idx++] = executables[i];
   }
 
+  int res = 0;
+    if (idx == 0) {
+    res = -1;
+  }
+
   if (idx == 1) {
     *len = strlen(candidates[0]) + 1;
     snprintf(input, *len + 2, "%s ", candidates[0]);
-    return 0;
   }
+
+  if (idx > 1 && tab_count > 0) {
+    qsort(candidates, idx, sizeof(char *), cmp_str);
+    write(STDOUT_FILENO, "\n", 1);
+    for (int i = 0; i < idx; i++) {
+      write(STDOUT_FILENO, candidates[i], strlen(candidates[i]));
+      write(STDOUT_FILENO, "  ", 2);
+    }
+    write(STDOUT_FILENO, "\n", 1);
+  }
+
+  if (idx > 1 && tab_count == 0)
+    res = -1;
 
   for (int i = 0; i < idx; i++) {
     free(candidates[i]);
@@ -80,7 +102,6 @@ char *read_line()
     if (c == '\t') {
       if (autocomplete(buffer, &len, tab_count++) == -1) {
         write(STDOUT_FILENO, "\x07", 1);
-        continue;
       }
 
       redraw_line(buffer);
