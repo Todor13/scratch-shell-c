@@ -64,50 +64,118 @@ static int longest_common_prefix(char *prefix, int *len, char **candidates, int 
   return res;
 }
 
+static int find_last_arg(char *buffer, int len, int *out_n)
+{
+  int pos;
+  for (int i = 0; i < len; i++) {
+    if (isspace(buffer[i])) {
+      pos = i;
+      *out_n += 1;
+    }
+  }
+
+  return pos;
+}
+
+static void show_matches(char **candidates, int count)
+{
+  qsort(candidates, count, sizeof(char *), cmp_str);
+  write(STDOUT_FILENO, "\n", 1);
+  for (int i = 0; i < count; i++) {
+    write(STDOUT_FILENO, candidates[i], strlen(candidates[i]));
+    write(STDOUT_FILENO, "  ", 2);
+  }
+  write(STDOUT_FILENO, "\n", 1);
+}
+
+static struct path_args *split_path_prefix(const char *arg)
+{
+  struct path_args *p = malloc(sizeof(struct path_args));
+  char *pos = strrchr(arg, '/');
+  if (pos != NULL) {
+    strncpy(p->path, arg, (pos - arg));
+    strcpy(p->prefix, (pos + 1));
+  } else {
+    p->path[0] = '.';
+    p->path[1] = '\0';
+    strcpy(p->prefix, arg);
+  }
+
+  return p;
+}
+
+static void expand_buffer(char *buffer, int *len, char *suffix, int pos)
+{
+  char *dest = buffer + pos;
+  strcpy(dest, suffix);
+  *len = strlen(buffer) + 1;
+  buffer[*len - 1] = ' ';
+  buffer[*len] = '\0';
+}
+
 int autocomplete(char *buffer, int *len, int tab_count)
 {
-  int count = 0;
-  char *candidates[1024];
-  for (int i = 0; builtins[i].name != NULL; i++) {
-    if (strncmp(buffer, builtins[i].name, *len) == 0) {
-      candidates[count++] = strdup(builtins[i].name);
-    }
-  }
-
-  char *executables[1024];
-  int found_count = find_executables(buffer, executables, 1024);
-  for (int i = 0; i < found_count; i++) {
-    if (exists(candidates, count, executables[i]) == 0)
-      candidates[count++] = executables[i];
-  }
-
+  struct tokenize_ctx *ctx = tokenize(buffer);
   int res = 0;
-  if (count == 0) {
-    res = -1;
-  }
+  char *arg = strdup(ctx->argv[ctx->argc - 1]);
+  int new_buf_pos = strlen(buffer) - strlen(arg);
+  int c_count = 0;
+  char *candidates[1024];
+  int base_len = 0;
 
-  if (count == 1) {
-    *len = strlen(candidates[0]) + 1;
-    snprintf(buffer, *len + 2, "%s ", candidates[0]);
-  }
-
-  if (count > 1 && tab_count > 0) {
-    qsort(candidates, count, sizeof(char *), cmp_str);
-    write(STDOUT_FILENO, "\n", 1);
-    for (int i = 0; i < count; i++) {
-      write(STDOUT_FILENO, candidates[i], strlen(candidates[i]));
-      write(STDOUT_FILENO, "  ", 2);
+  if (ctx->argc == 1) {
+    for (int i = 0; builtins[i].name != NULL; i++) {
+      if (strncmp(arg, builtins[i].name, *len) == 0) {
+        candidates[c_count++] = strdup(builtins[i].name);
+      }
     }
-    write(STDOUT_FILENO, "\n", 1);
+
+    char *executables[1024];
+    int found_count = find_executables(arg, executables, 1024);
+    for (int i = 0; i < found_count; i++) {
+      if (exists(candidates, c_count, executables[i]) == 0)
+        candidates[c_count++] = executables[i];
+    }
   }
 
-  if (count > 1 && tab_count == 0 && longest_common_prefix(buffer, len, candidates, count) == -1) {
+  if (ctx->argc > 1) {
+    struct path_args *p = split_path_prefix(arg);
+    DIR *dir = opendir(p->path);
+    if (dir) {
+      struct dirent *e;
+
+      while ((e = readdir(dir))) {
+        if (strncmp(e->d_name, p->prefix, strlen(p->prefix)) == 0) {
+          // then stat and whitespace if needed
+          candidates[c_count++] = strdup(e->d_name);
+        }
+      }
+    }
+    closedir(dir);
+  }
+
+  if (c_count == 0) {
     res = -1;
   }
 
-  for (int i = 0; i < count; i++) {
+  if (c_count == 1) {
+    expand_buffer(buffer, len, candidates[0], new_buf_pos + base_len);
+  }
+
+  if (c_count > 1 && tab_count > 0) {
+    show_matches(candidates, c_count);
+  }
+
+  if (c_count > 1 && tab_count == 0 &&
+      longest_common_prefix(buffer, len, candidates, c_count) == -1) {
+    res = -1;
+  }
+
+  for (int i = 0; i < c_count; i++) {
     free(candidates[i]);
   }
+  free_tokenize_ctx(ctx);
+  free(arg);
 
   return res;
 }

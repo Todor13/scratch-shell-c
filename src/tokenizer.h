@@ -23,7 +23,7 @@ struct pipe_args {
     char *argv[N_ARGV];
 };
 
-struct tokenize_result {
+struct tokenize_ctx {
     int argc;
     char *argv[N_ARGV];
     enum redirect redirect;
@@ -35,9 +35,10 @@ struct tokenize_result {
     int current_pipe;
     int prev_read;
     pid_t pids[N_PIPES];
+    int total_len;
 };
 
-struct tokenize_result *tokenize(char *input);
-void free_tokenize_result(struct tokenize_result *result);
+struct tokenize_ctx *tokenize(char *input);
+void free_tokenize_ctx(struct tokenize_ctx *ctx);
 
 #endif

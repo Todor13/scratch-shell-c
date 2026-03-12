@@ -4,44 +4,52 @@ static int single_quote_mask = 0x01;
 static int double_quote_mask = 0x02;
 static int escape_mask = 0x04;
 
-static void write_buffer(struct tokenize_result *result, char *buf, int *blen)
+static struct tokenize_ctx *init_ctx()
+{
+  struct tokenize_ctx *ctx = malloc(sizeof(struct tokenize_ctx));
+  ctx->argc = 0;
+  ctx->redirect = REDIRECT_NONE;
+  ctx->redirect_path = NULL;
+  ctx->n_pipes = 0;
+  ctx->prev_read = -1;
+  ctx->pipefd[0] = -1;
+  ctx->pipefd[1] = -1;
+  ctx->total_len = 0;
+  return ctx;
+}
+
+static void write_buffer(struct tokenize_ctx *ctx, char *buf, int *blen)
 {
   buf[*blen] = '\0';
-  if (result->redirect == REDIRECT_STDOUT || result->redirect == REDIRECT_STDERR) {
-    result->redirect_path = malloc(*blen + 1);
-    strcpy(result->redirect_path, buf);
+  if (ctx->redirect == REDIRECT_STDOUT || ctx->redirect == REDIRECT_STDERR) {
+    ctx->redirect_path = malloc(*blen + 1);
+    strcpy(ctx->redirect_path, buf);
   } else {
-    result->argv[result->argc] = malloc(*blen + 1);
-    strcpy(result->argv[result->argc++], buf);
+    ctx->argv[ctx->argc] = malloc(*blen + 1);
+    strcpy(ctx->argv[ctx->argc++], buf);
   }
   *blen = 0;
 }
 
-static void flush_buffer_pipe(struct tokenize_result *result, char *buf, int *blen)
+static void flush_buffer_pipe(struct tokenize_ctx *ctx, char *buf, int *blen)
 {
-  result->pipe_args[result->n_pipes].argc = result->argc;
-  for (int i = 0; i < result->argc; i++) {
-    result->pipe_args[result->n_pipes].argv[i] = result->argv[i];
+  ctx->pipe_args[ctx->n_pipes].argc = ctx->argc;
+  for (int i = 0; i < ctx->argc; i++) {
+    ctx->pipe_args[ctx->n_pipes].argv[i] = ctx->argv[i];
   }
-  result->argc = 0;
-  result->n_pipes++;
+  ctx->argc = 0;
+  ctx->n_pipes++;
 }
 
-struct tokenize_result *tokenize(char *input)
+struct tokenize_ctx *tokenize(char *input)
 {
-  struct tokenize_result *result = malloc(sizeof(struct tokenize_result));
-  result->argc = 0;
-  result->redirect = REDIRECT_NONE;
-  result->redirect_path = NULL;
-  result->n_pipes = 0;
-  result->prev_read = -1;
-  result->pipefd[0] = -1;
-  result->pipefd[1] = -1;
+  struct tokenize_ctx *ctx = init_ctx();
   char buf[1024];
   int mode = 0;
   int blen = 0;
   int i = 0;
   for (;;) {
+    ctx->total_len++;
     char c = input[i++];
 
     if (c == '\"' && !(mode & (single_quote_mask | escape_mask))) {
@@ -55,24 +63,24 @@ struct tokenize_result *tokenize(char *input)
     }
 
     if (mode == 0 && c == '|') {
-      result->redirect = REDIRECT_PIPE;
-      flush_buffer_pipe(result, buf, &blen);
+      ctx->redirect = REDIRECT_PIPE;
+      flush_buffer_pipe(ctx, buf, &blen);
       continue;
     }
 
     bool term = c == '\0';
     if (mode == 0 && isspace(c) > 0 || term) {
       if (term) {
-        write_buffer(result, buf, &blen);
-        if (result->redirect == REDIRECT_PIPE)
-          flush_buffer_pipe(result, buf, &blen);
+        write_buffer(ctx, buf, &blen);
+        if (ctx->redirect == REDIRECT_PIPE)
+          flush_buffer_pipe(ctx, buf, &blen);
         break;
       }
 
       if (blen == 0)
         continue;
 
-      write_buffer(result, buf, &blen);
+      write_buffer(ctx, buf, &blen);
       continue;
     }
 
@@ -83,20 +91,20 @@ struct tokenize_result *tokenize(char *input)
 
     if (mode == 0) {
       if ((c == '1' || c == '2') && input[i] == '>') {
-        result->redirect = (c == '1' ? REDIRECT_STDOUT : REDIRECT_STDERR);
-        result->redirect_mode = OVERRIDE;
+        ctx->redirect = (c == '1' ? REDIRECT_STDOUT : REDIRECT_STDERR);
+        ctx->redirect_mode = OVERRIDE;
         i++;
         if (input[i] == '>') {
           i++;
-          result->redirect_mode = APPPEND;
+          ctx->redirect_mode = APPPEND;
         }
       }
       if (c == '>') {
-        result->redirect = REDIRECT_STDOUT;
-        result->redirect_mode = OVERRIDE;
+        ctx->redirect = REDIRECT_STDOUT;
+        ctx->redirect_mode = OVERRIDE;
         if (input[i] == '>') {
           i++;
-          result->redirect_mode = APPPEND;
+          ctx->redirect_mode = APPPEND;
         }
       }
     }
@@ -107,26 +115,26 @@ struct tokenize_result *tokenize(char *input)
       mode ^= escape_mask;
   }
 
-  result->argv[result->argc] = NULL;
-  return result;
+  ctx->argv[ctx->argc] = NULL;
+  return ctx;
 }
 
-void free_tokenize_result(struct tokenize_result *result)
+void free_tokenize_ctx(struct tokenize_ctx *ctx)
 {
-  if (result->n_pipes != 0) {
-    for (int i = 0; i < result->n_pipes; i++) {
-      for (int j = 0; j < result->pipe_args[i].argc; j++) 
-        free(result->pipe_args[i].argv[j]);
+  if (ctx->n_pipes != 0) {
+    for (int i = 0; i < ctx->n_pipes; i++) {
+      for (int j = 0; j < ctx->pipe_args[i].argc; j++)
+        free(ctx->pipe_args[i].argv[j]);
     }
   } else {
-    for (int i = 0; i < result->argc; i++) {
-      free(result->argv[i]);
+    for (int i = 0; i < ctx->argc; i++) {
+      free(ctx->argv[i]);
     }
 
-    if (result->redirect_path != NULL) {
-      free(result->redirect_path);
+    if (ctx->redirect_path != NULL) {
+      free(ctx->redirect_path);
     }
   }
 
-  free(result);
+  free(ctx);
 }

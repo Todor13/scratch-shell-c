@@ -1,61 +1,59 @@
-#include "builtin.h"
 #include "input.h"
-#include "tokenizer.h"
 
 const int MAX_ARGS = 32;
 
-void redirect(struct tokenize_result *result)
+void redirect(struct tokenize_ctx *ctx)
 {
-  if (result->redirect != REDIRECT_PIPE) {
-    int fd = open(result->redirect_path,
-                  O_WRONLY | O_CREAT | (result->redirect_mode == OVERRIDE ? O_TRUNC : O_APPEND),
+  if (ctx->redirect != REDIRECT_PIPE) {
+    int fd = open(ctx->redirect_path,
+                  O_WRONLY | O_CREAT | (ctx->redirect_mode == OVERRIDE ? O_TRUNC : O_APPEND),
                   0644);
-    if (result->redirect == REDIRECT_STDOUT)
+    if (ctx->redirect == REDIRECT_STDOUT)
       dup2(fd, STDOUT_FILENO);
-    if (result->redirect == REDIRECT_STDERR)
+    if (ctx->redirect == REDIRECT_STDERR)
       dup2(fd, STDERR_FILENO);
     close(fd);
   }
 }
 
-void pipe_setup(struct tokenize_result *result)
+void pipe_setup(struct tokenize_ctx *ctx)
 {
-  if (result->prev_read != -1)
-    dup2(result->prev_read, STDIN_FILENO);
+  if (ctx->prev_read != -1)
+    dup2(ctx->prev_read, STDIN_FILENO);
 
-  if (result->current_pipe < result->n_pipes - 1)
-    dup2(result->pipefd[1], STDOUT_FILENO);
+  if (ctx->current_pipe < ctx->n_pipes - 1)
+    dup2(ctx->pipefd[1], STDOUT_FILENO);
 
-  if (result->prev_read != -1)
-    close(result->prev_read);
+  if (ctx->prev_read != -1)
+    close(ctx->prev_read);
 
-  if (result->current_pipe < result->n_pipes - 1) {
-    close(result->pipefd[0]);
-    close(result->pipefd[1]);
+  if (ctx->current_pipe < ctx->n_pipes - 1) {
+    close(ctx->pipefd[0]);
+    close(ctx->pipefd[1]);
   }
 }
 
-void pipe_close(struct tokenize_result *result)
+void pipe_close(struct tokenize_ctx *ctx)
 {
-  if (result->prev_read != -1)
-    close(result->prev_read);
+  if (ctx->prev_read != -1)
+    close(ctx->prev_read);
 
-  if (result->current_pipe < result->n_pipes - 1) {
-    close(result->pipefd[1]);
-    result->prev_read = result->pipefd[0];
+  if (ctx->current_pipe < ctx->n_pipes - 1) {
+    close(ctx->pipefd[1]);
+    ctx->prev_read = ctx->pipefd[0];
   }
 }
 
-int dispatch_builtin(struct tokenize_result *result)
+int dispatch_builtin(struct tokenize_ctx *ctx)
 {
   for (int i = 0; builtins[i].name; i++) {
-    if (strcmp(result->argv[0], builtins[i].name) == 0) {
-      if (result->redirect == REDIRECT_STDERR || result->redirect == REDIRECT_STDOUT) {
+    if (strcmp(ctx->argv[0], builtins[i].name) == 0) {
+      if (ctx->redirect == REDIRECT_STDERR || ctx->redirect == REDIRECT_STDOUT) {
         int saved_stdout = dup(STDOUT_FILENO);
         int saved_stderr = dup(STDERR_FILENO);
-        redirect(result);
+        redirect(ctx);
 
-        int status = builtins[i].fn(result->argc, result->argv);
+        int status = builtins[i].fn(ctx->argc, ctx->argv);
 
         fflush(stdout);
         dup2(saved_stdout, STDOUT_FILENO);
@@ -64,45 +62,45 @@ int dispatch_builtin(struct tokenize_result *result)
         close(saved_stderr);
 
         return status;
-      } else if (result->redirect == REDIRECT_PIPE) {
+      } else if (ctx->redirect == REDIRECT_PIPE) {
         pid_t pid = fork();
         if (pid == 0) {
-          pipe_setup(result);
-          builtins[i].fn(result->argc, result->argv);
+          pipe_setup(ctx);
+          builtins[i].fn(ctx->argc, ctx->argv);
           _exit(127);
         }
-        result->pids[result->current_pipe] = pid;
+        ctx->pids[ctx->current_pipe] = pid;
         return 0;
       } else {
-        return builtins[i].fn(result->argc, result->argv);
+        return builtins[i].fn(ctx->argc, ctx->argv);
       }
     }
   }
   return -1;
 }
 
-int dispatch_executable(struct tokenize_result *result)
+int dispatch_executable(struct tokenize_ctx *ctx)
 {
-  char *cmd = result->argv[0];
+  char *cmd = ctx->argv[0];
   pid_t pid = fork();
   if (pid == 0) {
-    if (result->redirect == REDIRECT_STDERR || result->redirect == REDIRECT_STDOUT) {
-      redirect(result);
-    } else if (result->redirect == REDIRECT_PIPE) {
-      pipe_setup(result);
+    if (ctx->redirect == REDIRECT_STDERR || ctx->redirect == REDIRECT_STDOUT) {
+      redirect(ctx);
+    } else if (ctx->redirect == REDIRECT_PIPE) {
+      pipe_setup(ctx);
     }
 
-    execvp(cmd, result->argv);
+    execvp(cmd, ctx->argv);
     exit(127);
   }
   if (pid < 0) {
     perror("fork");
     return 1;
   }
-  result->pids[result->current_pipe] = pid;
+  ctx->pids[ctx->current_pipe] = pid;
 
   int status;
-  if (result->redirect != REDIRECT_PIPE) {
+  if (ctx->redirect != REDIRECT_PIPE) {
     waitpid(pid, &status, 0);
     if (WIFEXITED(status)) {
       int code = WEXITSTATUS(status);
@@ -115,51 +113,51 @@ int dispatch_executable(struct tokenize_result *result)
   return 0;
 }
 
-int dispatch(struct tokenize_result *result)
+int dispatch(struct tokenize_ctx *ctx)
 {
   int status;
-  if (result->redirect == REDIRECT_PIPE) {
-    for (int i = 0; i < result->n_pipes; i++) {
-      result->current_pipe = i;
-      result->argc = result->pipe_args[i].argc;
+  if (ctx->redirect == REDIRECT_PIPE) {
+    for (int i = 0; i < ctx->n_pipes; i++) {
+      ctx->current_pipe = i;
+      ctx->argc = ctx->pipe_args[i].argc;
       int j = 0;
-      for (j; j < result->argc; j++) {
-        result->argv[j] = result->pipe_args[i].argv[j];
+      for (j; j < ctx->argc; j++) {
+        ctx->argv[j] = ctx->pipe_args[i].argv[j];
       }
-      result->argv[j] = NULL;
+      ctx->argv[j] = NULL;
 
-      if (pipe(result->pipefd) < 0) {
+      if (pipe(ctx->pipefd) < 0) {
         perror("pipe");
         exit(1);
       }
 
       int s;
-      if ((s = dispatch_builtin(result)) > -1) {
+      if ((s = dispatch_builtin(ctx)) > -1) {
         status = s;
-        pipe_close(result);
+        pipe_close(ctx);
         continue;
       }
 
-      if ((s = dispatch_executable(result)) > -1) {
+      if ((s = dispatch_executable(ctx)) > -1) {
         status = s;
       }
 
-      pipe_close(result);
+      pipe_close(ctx);
     }
 
-    for (int i = 0; i < result->n_pipes; i++) {
+    for (int i = 0; i < ctx->n_pipes; i++) {
       int st;
-      waitpid(result->pids[i], &st, 0);
+      waitpid(ctx->pids[i], &st, 0);
     }
 
     return status;
   }
 
-  if ((status = dispatch_builtin(result)) > -1) {
+  if ((status = dispatch_builtin(ctx)) > -1) {
     return status;
   }
 
-  if ((status = dispatch_executable(result)) > -1) {
+  if ((status = dispatch_executable(ctx)) > -1) {
     return status;
   }
 
@@ -179,13 +177,13 @@ int main(int argc, char *argv[])
     if (line[0] != '\0') {
       write_history(strdup(line));
 
-      struct tokenize_result *result = tokenize(line);
+      struct tokenize_ctx *ctx = tokenize(line);
 
-      if (dispatch(result) == -1) {
+      if (dispatch(ctx) == -1) {
         printf("%s: command not found\n", line);
       }
 
-      free_tokenize_result(result);
+      free_tokenize_ctx(ctx);
     }
   }
 
