@@ -88,17 +88,21 @@ static void show_matches(char **candidates, int count)
   write(STDOUT_FILENO, "\n", 1);
 }
 
-static struct path_args *split_path_prefix(const char *arg)
+static struct path_args *split_path_prefix(const char *arg, int *out_len)
 {
   struct path_args *p = malloc(sizeof(struct path_args));
   char *pos = strrchr(arg, '/');
   if (pos != NULL) {
-    strncpy(p->path, arg, (pos - arg));
+    int idx = (pos - arg + 1);
+    strncpy(p->path, arg, idx);
+    p->path[idx] = '\0';
     strcpy(p->prefix, (pos + 1));
+    *out_len = idx;
   } else {
     p->path[0] = '.';
     p->path[1] = '\0';
     strcpy(p->prefix, arg);
+    *out_len = 0;
   }
 
   return p;
@@ -108,9 +112,12 @@ static void expand_buffer(char *buffer, int *len, char *suffix, int pos)
 {
   char *dest = buffer + pos;
   strcpy(dest, suffix);
-  *len = strlen(buffer) + 1;
-  buffer[*len - 1] = ' ';
-  buffer[*len] = '\0';
+  *len = strlen(buffer);
+  if (buffer[*len - 1] != '/') {
+    buffer[*len] = ' ';
+    buffer[*len + 1] = '\0';
+    *len = *len + 1;
+  }
 }
 
 int autocomplete(char *buffer, int *len, int tab_count)
@@ -121,7 +128,7 @@ int autocomplete(char *buffer, int *len, int tab_count)
   int new_buf_pos = strlen(buffer) - strlen(arg);
   int c_count = 0;
   char *candidates[1024];
-  int base_len = 0;
+  int path_len = 0;
 
   if (ctx->argc == 1) {
     for (int i = 0; builtins[i].name != NULL; i++) {
@@ -139,19 +146,36 @@ int autocomplete(char *buffer, int *len, int tab_count)
   }
 
   if (ctx->argc > 1) {
-    struct path_args *p = split_path_prefix(arg);
+    struct path_args *p = split_path_prefix(arg, &path_len);
     DIR *dir = opendir(p->path);
     if (dir) {
       struct dirent *e;
 
       while ((e = readdir(dir))) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
+          continue;
+          
         if (strncmp(e->d_name, p->prefix, strlen(p->prefix)) == 0) {
-          // then stat and whitespace if needed
-          candidates[c_count++] = strdup(e->d_name);
+          struct stat st;
+          char full[1024];
+          snprintf(full,
+                   path_len + strlen(p->prefix) + strlen(e->d_name) + 2,
+                   "%s/%s",
+                   p->path,
+                   e->d_name);
+          if (stat(full, &st) == 0) {
+            if (S_ISDIR(st.st_mode)) {
+              char cand[258];
+              snprintf(cand, strlen(e->d_name) + 2, "%s/", e->d_name);
+              candidates[c_count++] = strdup(cand);
+            } else
+              candidates[c_count++] = strdup(e->d_name);
+          }
         }
       }
     }
     closedir(dir);
+    free(p);
   }
 
   if (c_count == 0) {
@@ -159,7 +183,7 @@ int autocomplete(char *buffer, int *len, int tab_count)
   }
 
   if (c_count == 1) {
-    expand_buffer(buffer, len, candidates[0], new_buf_pos + base_len);
+    expand_buffer(buffer, len, candidates[0], new_buf_pos + path_len);
   }
 
   if (c_count > 1 && tab_count > 0) {
