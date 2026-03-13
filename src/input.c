@@ -154,12 +154,12 @@ int autocomplete(char *buffer, int *len, int tab_count)
       while ((e = readdir(dir))) {
         if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0)
           continue;
-          
+
         if (strncmp(e->d_name, p->prefix, strlen(p->prefix)) == 0) {
           struct stat st;
           char full[1024];
           snprintf(full,
-                   path_len + strlen(p->prefix) + strlen(e->d_name) + 2,
+                   path_len + strlen(p->prefix) + strlen(e->d_name) + 3,
                    "%s/%s",
                    p->path,
                    e->d_name);
