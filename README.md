@@ -1,34 +1,156 @@
-[![progress-banner](https://backend.codecrafters.io/progress/shell/7037b79f-47c1-47fb-b043-5b0c4bc4bad3)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
+# Shell from Scratch (CodeCrafters)
 
-This is a starting point for C solutions to the
-["Build Your Own Shell" Challenge](https://app.codecrafters.io/courses/shell/overview).
+A minimal Unix-like shell built from scratch in C as part of the CodeCrafters challenge.
+The goal of this project is **learning by implementation** — understanding how shells work internally rather than optimizing for performance or completeness.
 
-In this challenge, you'll build your own POSIX compliant shell that's capable of
-interpreting shell commands, running external programs and builtin commands like
-cd, pwd, echo and more. Along the way, you'll learn about shell command parsing,
-REPLs, builtin commands, and more.
+---
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+## Overview
 
-# Passing the first stage
+This shell supports core functionality such as:
 
-The entry point for your `shell` implementation is in `src/main.c`. Study and
-uncomment the relevant code, and push your changes to pass the first stage:
+* Command execution (external programs)
+* Built-in commands
+* Input parsing and tokenization
+* Command history
+* Basic autocomplete
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+The implementation intentionally avoids third-party libraries (e.g. `readline`) to stay true to the “from scratch” philosophy of the challenge.
+
+---
+
+## Design Philosophy
+
+* **Educational first** – clarity and simplicity over performance
+* **Minimal dependencies** – no external libraries
+* **Modular structure** – split into logical components
+* **Incremental development** – built step-by-step following the challenge
+
+---
+
+## Project Structure
+
+The codebase is organized into modules, each with a `.c` implementation file and a corresponding `.h` header (except `main.c`):
+
+```
+.
+├── main.c
+├── builtin.c / builtin.h
+├── exec.c / exec.h
+├── history.c / history.h
+├── input.c / input.h
+├── tokenizer.c / tokenizer.h
 ```
 
-Time to move on to the next stage!
+### `main.c`
 
-# Stage 2 & beyond
+* Entry point of the shell
+* Runs the main REPL loop (Read → Evaluate → Print → Loop)
+* Coordinates input, parsing, and execution
 
-Note: This section is for stages 2 and beyond.
+### `input`
 
-1. Ensure you have `cmake` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.c`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+* Handles raw user input
+* Reads from stdin without external helpers (no readline)
+* Responsible for basic line handling
+
+### `tokenizer`
+
+* Splits input into arguments suitable for command execution incl. pipes
+* Handles parsing logic required for execution
+
+### `exec`
+
+* Handles executables search (not optimized)
+
+### `builtin`
+
+* Implements built-in shell commands (e.g. `cd`, `exit`)
+* Keeps them separate from external commands
+
+### `history`
+
+* Stores previously entered commands
+* Enables navigation and reuse of past input
+
+---
+
+## Features
+
+* REPL loop
+* Built-in commands
+* External command execution
+* Token-based parsing
+* Command history
+* Basic autocomplete (via directory traversal)
+
+---
+
+## Known Limitations / Work in Progress
+
+This project prioritizes correctness and understanding over optimization. Some areas are intentionally simplified:
+
+* **No caching for autocomplete**
+
+  * Directory traversal happens on every autocomplete request
+  * Can be improved with caching or indexing
+
+* **Limited parsing capabilities**
+
+  * No advanced shell features (only partial redirection, quoting edge cases, etc.)
+
+* **Basic history handling**
+
+  * Could be extended
+
+* **Minimal error handling in edge cases**
+
+* **No performance optimizations**
+
+  * Straightforward implementations used for clarity
+
+---
+
+## Future Improvements
+
+* Add caching for autocomplete
+* Improve tokenizer
+* Enhance history (persistent storage, reverse search)
+* Better error handling and reporting
+* Performance tuning where appropriate
+
+---
+
+## Build & Formatting
+
+* Compiled using `clang`
+* Includes a **custom `.clang-format` configuration** for consistent code style
+
+---
+
+## Notes
+
+* No third-party libraries are used (including `readline`)
+* Everything is implemented manually to better understand system-level behavior
+
+---
+
+## Purpose
+
+This project is not meant to compete with production shells like `bash` or `zsh`.
+Instead, it serves as a hands-on exploration of:
+
+* Process management
+* Input parsing
+* Shell architecture
+* System programming in C
+
+---
+
+## Status
+
+✔ Core functionality complete
+⚠ Polishing and improvements in progress
+
+---
+
