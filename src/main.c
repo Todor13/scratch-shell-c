@@ -2,7 +2,7 @@
 
 const int MAX_ARGS = 32;
 
-void redirect(struct tokenize_ctx *ctx)
+static void redirect(struct tokenize_ctx *ctx)
 {
   if (ctx->redirect != REDIRECT_PIPE) {
     int fd = open(ctx->redirect_path,
@@ -16,7 +16,7 @@ void redirect(struct tokenize_ctx *ctx)
   }
 }
 
-void pipe_setup(struct tokenize_ctx *ctx)
+static void pipe_setup(struct tokenize_ctx *ctx)
 {
   if (ctx->prev_read != -1)
     dup2(ctx->prev_read, STDIN_FILENO);
@@ -44,7 +44,7 @@ void pipe_close(struct tokenize_ctx *ctx)
   }
 }
 
-int dispatch_builtin(struct tokenize_ctx *ctx)
+static int dispatch_builtin(struct tokenize_ctx *ctx)
 {
   for (int i = 0; builtins[i].name; i++) {
     if (strcmp(ctx->argv[0], builtins[i].name) == 0) {
@@ -79,7 +79,7 @@ int dispatch_builtin(struct tokenize_ctx *ctx)
   return -1;
 }
 
-int dispatch_executable(struct tokenize_ctx *ctx)
+static int dispatch_executable(struct tokenize_ctx *ctx)
 {
   char *cmd = ctx->argv[0];
   pid_t pid = fork();
@@ -113,7 +113,7 @@ int dispatch_executable(struct tokenize_ctx *ctx)
   return 0;
 }
 
-int dispatch(struct tokenize_ctx *ctx)
+static int dispatch(struct tokenize_ctx *ctx)
 {
   int status;
   if (ctx->redirect == REDIRECT_PIPE) {

@@ -119,7 +119,7 @@ static void expand_buffer(char *buffer, int *len, char *suffix, int pos, bool au
   }
 }
 
-int autocomplete(char *buffer, int *len, int tab_count)
+static int autocomplete(char *buffer, int *len, int tab_count)
 {
   struct tokenize_ctx *ctx = tokenize(buffer);
   int res = 0;

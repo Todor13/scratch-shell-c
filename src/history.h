@@ -16,9 +16,7 @@ void load_env_history();
 void persist_env_history();
 void free_history();
 
-//TODO: better encapsulate
 extern int history_arrow_idx;
 extern int history_idx;
-
 
 #endif
