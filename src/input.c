@@ -63,19 +63,6 @@ static int longest_common_prefix(char *prefix, char **candidates, int count)
   return res;
 }
 
-static int find_last_arg(char *buffer, int len, int *out_n)
-{
-  int pos;
-  for (int i = 0; i < len; i++) {
-    if (isspace(buffer[i])) {
-      pos = i;
-      *out_n += 1;
-    }
-  }
-
-  return pos;
-}
-
 static void show_matches(char **candidates, int count)
 {
   qsort(candidates, count, sizeof(char *), cmp_str);
