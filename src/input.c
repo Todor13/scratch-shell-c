@@ -186,7 +186,6 @@ static int autocomplete(char *buffer, int *len, int tab_count)
       free(common_prefix);
     } else {
       res = -1;
-      // expand_buffer(buffer, len, arg, new_buf_pos + path_len, true);
     }
   }
 
