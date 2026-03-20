@@ -39,12 +39,13 @@ static int cmp_str(const void *a, const void *b)
   return strcmp(*(char *const *)a, *(char *const *)b);
 }
 
-static int longest_common_prefix(char *prefix, char **candidates, int count)
+static char *longest_common_prefix(char *prefix, char **candidates, int count)
 {
-  int idx = strlen(prefix);
-  int res = -1;
+  char *common_prefix = NULL;
+  int orig_len = strlen(prefix);
+  int idx = orig_len;
   bool cond = true;
-  for (;;) {
+  while (cond) {
     char c = candidates[0][idx];
     for (int i = 1; i < count; i++) {
       if (c != candidates[i][idx]) {
@@ -52,15 +53,17 @@ static int longest_common_prefix(char *prefix, char **candidates, int count)
         break;
       }
     }
-
-    if (!cond)
-      break;
-
-    prefix[idx++] = c;
-    res = 0;
+    if (cond)
+      idx++;
   }
-  prefix[idx] = '\0';
-  return res;
+
+  if (idx - orig_len > 0) {
+    common_prefix = malloc((idx + 1) * sizeof(char));
+    strncpy(common_prefix, candidates[0], idx);
+    common_prefix[idx] = '\0';
+  }
+
+  return common_prefix;
 }
 
 static void show_matches(char **candidates, int count)
@@ -177,10 +180,14 @@ static int autocomplete(char *buffer, int *len, int tab_count)
   }
 
   if (c_count > 1 && tab_count == 0) {
-    if (longest_common_prefix(arg, candidates, c_count) == -1)
+    char *common_prefix = longest_common_prefix(arg + path_len, candidates, c_count);
+    if (common_prefix != NULL) {
+      expand_buffer(buffer, len, common_prefix, new_buf_pos + path_len, true);
+      free(common_prefix);
+    } else {
       res = -1;
-    
-    expand_buffer(buffer, len, arg, new_buf_pos + path_len, true);
+      // expand_buffer(buffer, len, arg, new_buf_pos + path_len, true);
+    }
   }
 
   for (int i = 0; i < c_count; i++) {

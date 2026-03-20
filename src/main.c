@@ -185,6 +185,7 @@ int main(int argc, char *argv[])
 
       free_tokenize_ctx(ctx);
     }
+    free(line);
   }
 
   free(line);
