@@ -170,6 +170,7 @@ int main(int argc, char *argv[])
   char *line = NULL;
   size_t len = 0;
   load_env_history();
+  load_path_dirs();
 
   for (;;) {
     line = read_line();
@@ -188,6 +189,7 @@ int main(int argc, char *argv[])
     free(line);
   }
 
+  free_path_dirs();
   free(line);
   return 0;
 }

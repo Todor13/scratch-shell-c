@@ -10,8 +10,12 @@
 #include <unistd.h>
 #include <dirent.h>
 
+#include "utils.h"
+
 int find_executable(const char *cmd, char *out, size_t outsz);
 int find_executables(const char *prefix, char **result, int max);
 int exists(char **result, int count, char *cmd);
+void load_path_dirs();
+void free_path_dirs();
 
 #endif
