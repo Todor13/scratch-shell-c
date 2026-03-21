@@ -40,6 +40,7 @@ The codebase is organized into modules, each with a `.c` implementation file and
 ├── history.c / history.h
 ├── input.c / input.h
 ├── tokenizer.c / tokenizer.h
+├── utils.c / utils.h
 ```
 
 ### `main.c`
@@ -72,6 +73,10 @@ The codebase is organized into modules, each with a `.c` implementation file and
 
 * Stores previously entered commands
 * Enables navigation and reuse of past input
+
+### `utils`
+
+* Storage for handy functions like xmalloc
 
 ---
 

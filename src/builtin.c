@@ -79,17 +79,6 @@ int builtin_cd(int argc, char **argv)
   return 0;
 }
 
-int parse_int(const char *s, int *out)
-{
-  char *end;
-  long parsed = strtol(s, &end, 10);
-  if (s == end || *end != '\0')
-    return 0;
-
-  *out = (int)parsed;
-  return 1;
-}
-
 int builtin_history(int argc, char **argv)
 {
   int i = 0;

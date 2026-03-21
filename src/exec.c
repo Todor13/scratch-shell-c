@@ -1,6 +1,6 @@
 #include "exec.h"
 
-static size_t init_size = 2;
+static size_t init_size = 64;
 static char **path_dirs = NULL;
 static int count = 0;
 
@@ -10,7 +10,6 @@ void load_path_dirs()
     return;
   
   path_dirs = xmalloc(init_size * sizeof(char *));
-
   const char *path = getenv("PATH");
   if (!path)
     return;
@@ -48,6 +47,7 @@ int exists(char **result, int count, char *cmd)
     if (strcmp(result[i], cmd) == 0)
       return 1;
    }
+   
    return 0;
 }
 
