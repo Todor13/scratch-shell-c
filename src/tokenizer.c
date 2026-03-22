@@ -6,7 +6,7 @@ static int escape_mask = 0x04;
 
 static struct tokenize_ctx *init_ctx()
 {
-  struct tokenize_ctx *ctx = malloc(sizeof(struct tokenize_ctx));
+  struct tokenize_ctx *ctx = xmalloc(sizeof(struct tokenize_ctx));
   ctx->argc = 0;
   ctx->redirect = REDIRECT_NONE;
   ctx->redirect_path = NULL;
@@ -22,10 +22,10 @@ static void write_buffer(struct tokenize_ctx *ctx, char *buf, int *blen)
 {
   buf[*blen] = '\0';
   if (ctx->redirect == REDIRECT_STDOUT || ctx->redirect == REDIRECT_STDERR) {
-    ctx->redirect_path = malloc(*blen + 1);
+    ctx->redirect_path = xmalloc((*blen + 1) * sizeof(char));
     strcpy(ctx->redirect_path, buf);
   } else {
-    ctx->argv[ctx->argc] = malloc(*blen + 1);
+    ctx->argv[ctx->argc] = xmalloc((*blen + 1) * sizeof(char));
     strcpy(ctx->argv[ctx->argc++], buf);
   }
   *blen = 0;

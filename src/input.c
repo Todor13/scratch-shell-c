@@ -58,7 +58,7 @@ static char *longest_common_prefix(char *prefix, char **candidates, int count)
   }
 
   if (idx - orig_len > 0) {
-    common_prefix = malloc((idx + 1) * sizeof(char));
+    common_prefix = xmalloc((idx + 1) * sizeof(char));
     strncpy(common_prefix, candidates[0], idx);
     common_prefix[idx] = '\0';
   }
@@ -79,7 +79,7 @@ static void show_matches(char **candidates, int count)
 
 static struct path_args *split_path_prefix(const char *arg, int *out_len)
 {
-  struct path_args *p = malloc(sizeof(struct path_args));
+  struct path_args *p = xmalloc(sizeof(struct path_args));
   char *pos = strrchr(arg, '/');
   if (pos != NULL) {
     int idx = (pos - arg + 1);
@@ -201,7 +201,7 @@ static int autocomplete(char *buffer, int *len, int tab_count)
 char *read_line()
 {
   enable_raw_mode();
-  char *buffer = malloc(BUFFER_SIZE);
+  char *buffer = xmalloc(BUFFER_SIZE * sizeof(char *));
   int len = 0;
   buffer[0] = '\0';
   write(STDOUT_FILENO, "$ ", 2);

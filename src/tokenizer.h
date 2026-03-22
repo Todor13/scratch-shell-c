@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include "utils.h"
+
 #define N_PIPES 64
 #define N_ARGV 64
 
