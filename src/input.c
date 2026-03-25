@@ -162,8 +162,8 @@ static int autocomplete(char *buffer, int *len, int tab_count)
           }
         }
       }
+      closedir(dir);
     }
-    closedir(dir);
     free(p);
   }
 
