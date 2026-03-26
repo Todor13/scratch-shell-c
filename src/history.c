@@ -1,9 +1,9 @@
 #include "history.h"
 
+static size_t init_size = 2;
+char **history = NULL;
 int history_arrow_idx = 0;
 int history_idx = 0;
-
-char *history[MAX_HISTORY];
 int append_idx = 0;
 
 char *read_history()
@@ -19,6 +19,11 @@ char **read_full_history(int *out_n)
 
 void write_history(char *line)
 {
+  if (history_idx == init_size) {
+    init_size *= 2;
+    history = xrealloc(history, init_size * sizeof(char *));
+  }
+
   history[history_idx++] = line;
 }
 
@@ -59,6 +64,8 @@ int write_history_fd(char *path, char *mode)
 
 void load_env_history()
 {
+  history = xmalloc(init_size * sizeof(char *));
+
   char *histfile_env = getenv("HISTFILE");
   if (histfile_env != NULL) {
     read_history_fd(histfile_env);

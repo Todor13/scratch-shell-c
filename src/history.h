@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_HISTORY 1024
+#include "utils.h"
 
 char **read_full_history(int *out_n);
 char *read_history();
