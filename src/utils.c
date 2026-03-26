@@ -20,6 +20,17 @@ void *xrealloc(void *ptr, size_t size)
   return new_ptr;
 }
 
+char *xstrdup(const char *s)
+{
+  if (s == NULL)
+    return NULL;
+
+  size_t len = strlen(s) + 1;
+  char *dup = xmalloc(len);
+  memcpy(dup, s, len);
+  return dup;
+}
+
 int parse_int(const char *s, int *out)
 {
   char *end;

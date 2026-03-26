@@ -113,7 +113,7 @@ static int autocomplete(char *buffer, int *len, int tab_count)
 {
   struct tokenize_ctx *ctx = tokenize(buffer);
   int res = 0;
-  char *arg = strdup(ctx->argv[ctx->argc - 1]);
+  char *arg = xstrdup(ctx->argv[ctx->argc - 1]);
   int new_buf_pos = strlen(buffer) - strlen(arg);
   int c_count = 0;
   char *candidates[1024];
@@ -122,7 +122,7 @@ static int autocomplete(char *buffer, int *len, int tab_count)
   if (ctx->argc == 1) {
     for (int i = 0; builtins[i].name != NULL; i++) {
       if (strncmp(arg, builtins[i].name, *len) == 0) {
-        candidates[c_count++] = strdup(builtins[i].name);
+        candidates[c_count++] = xstrdup(builtins[i].name);
       }
     }
 
@@ -156,9 +156,9 @@ static int autocomplete(char *buffer, int *len, int tab_count)
             if (S_ISDIR(st.st_mode)) {
               char cand[258];
               snprintf(cand, strlen(e->d_name) + 2, "%s/", e->d_name);
-              candidates[c_count++] = strdup(cand);
+              candidates[c_count++] = xstrdup(cand);
             } else
-              candidates[c_count++] = strdup(e->d_name);
+              candidates[c_count++] = xstrdup(e->d_name);
           }
         }
       }

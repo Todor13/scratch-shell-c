@@ -14,7 +14,7 @@ void load_path_dirs()
   if (!path)
     return;
 
-  char *copy = strdup(path);
+  char *copy = xstrdup(path);
   if (!copy)
     return;
 
@@ -27,7 +27,7 @@ void load_path_dirs()
       init_size *= 2;
       path_dirs = xrealloc(path_dirs, init_size * sizeof(char *)); 
     }
-    path_dirs[count++] = strdup(dir);
+    path_dirs[count++] = xstrdup(dir);
   }
 
   free(copy);
@@ -88,7 +88,7 @@ int find_executables(const char *prefix, char **result, int max)
       snprintf(full, sizeof(full), "%s/%s", path_dirs[i], d->d_name);
 
       if (found_count < max && exists(result, found_count, d->d_name) == 0 && access(full, X_OK) == 0)
-        result[found_count++] = strdup(d->d_name);
+        result[found_count++] = xstrdup(d->d_name);
     }
     closedir(dir);
   }
