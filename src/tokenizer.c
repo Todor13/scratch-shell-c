@@ -64,6 +64,8 @@ struct tokenize_ctx *tokenize(char *input)
 
     if (mode == 0 && c == '|') {
       ctx->redirect = REDIRECT_PIPE;
+      if (blen > 0)
+        write_buffer(ctx, buf, &blen);
       flush_buffer_pipe(ctx, buf, &blen);
       continue;
     }
