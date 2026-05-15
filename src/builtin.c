@@ -7,7 +7,8 @@ struct builtin builtins[] = {
   { "exit", builtin_exit }, 
   { "pwd", builtin_pwd },
   { "cd", builtin_cd },
-  { "history", builtin_history},
+  { "history", builtin_history },
+  { "jobs", builtin_jobs },
   { NULL, NULL }
 };
 // clang-format on
@@ -124,4 +125,9 @@ int builtin_type(int argc, char **argv)
 
   printf("%s not found\n", argv[1]);
   return 1;
+}
+
+int builtin_jobs(int argc, char **argv)
+{
+  return 0;
 }
