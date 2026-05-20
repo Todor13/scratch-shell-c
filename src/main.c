@@ -71,6 +71,13 @@ static int dispatch_builtin(struct tokenize_ctx *ctx)
         }
         ctx->pids[ctx->current_pipe] = pid;
         return 0;
+      } else if (ctx->background) {
+        pid_t pid = fork();
+        if (pid == 0) {
+          builtins[i].fn(ctx->argc, ctx->argv);
+          _exit(127);
+        }
+        return 0;
       } else {
         return builtins[i].fn(ctx->argc, ctx->argv);
       }
@@ -93,6 +100,9 @@ static int dispatch_executable(struct tokenize_ctx *ctx)
     execvp(cmd, ctx->argv);
     exit(127);
   }
+  if (pid > 0 && ctx->background) {
+    printf("[1] %d\n", pid);
+  }
   if (pid < 0) {
     perror("fork");
     return 1;
@@ -100,7 +110,7 @@ static int dispatch_executable(struct tokenize_ctx *ctx)
   ctx->pids[ctx->current_pipe] = pid;
 
   int status;
-  if (ctx->redirect != REDIRECT_PIPE) {
+  if (ctx->redirect != REDIRECT_PIPE && !ctx->background) {
     waitpid(pid, &status, 0);
     if (WIFEXITED(status)) {
       int code = WEXITSTATUS(status);
@@ -145,9 +155,11 @@ static int dispatch(struct tokenize_ctx *ctx)
       pipe_close(ctx);
     }
 
-    for (int i = 0; i < ctx->n_pipes; i++) {
-      int st;
-      waitpid(ctx->pids[i], &st, 0);
+    if (!ctx->background) {
+      for (int i = 0; i < ctx->n_pipes; i++) {
+        int st;
+        waitpid(ctx->pids[i], &st, 0);
+      }
     }
 
     return status;

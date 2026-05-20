@@ -15,6 +15,7 @@ static struct tokenize_ctx *init_ctx()
   ctx->pipefd[0] = -1;
   ctx->pipefd[1] = -1;
   ctx->total_len = 0;
+  ctx->background = false;
   return ctx;
 }
 
@@ -74,6 +75,13 @@ struct tokenize_ctx *tokenize(char *input)
     if (mode == 0 && isspace(c) > 0 || term) {
       if (term) {
         write_buffer(ctx, buf, &blen);
+        // TODO: Handle the arg& case
+        if (ctx->argc > 0 && strcmp(ctx->argv[ctx->argc - 1], "&") == 0) {
+          ctx->background = true;
+          free(ctx->argv[ctx->argc - 1]);
+          ctx->argc -= 1;
+
+        }
         if (ctx->redirect == REDIRECT_PIPE)
           flush_buffer_pipe(ctx, buf, &blen);
         break;

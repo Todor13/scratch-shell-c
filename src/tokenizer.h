@@ -38,6 +38,7 @@ struct tokenize_ctx {
     int prev_read;
     pid_t pids[N_PIPES];
     int total_len;
+    bool background;
 };
 
 struct tokenize_ctx *tokenize(char *input);
