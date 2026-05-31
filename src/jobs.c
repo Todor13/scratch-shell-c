@@ -25,6 +25,12 @@ static int find_vacant()
   return orig_size;
 }
 
+static void free_job(struct job *j)
+{
+  free(j->cmd);
+  free(j);
+}
+
 void update_jobs()
 {
   if (!sigchld_reveived)
@@ -44,8 +50,7 @@ void update_jobs()
           jobs[i]->state = STOPPED;
         }
         print_job(jobs[i]);
-        free(jobs[i]->cmd);
-        free(jobs[i]);
+        free_job(jobs[i]);
         jobs[i] = NULL;
         break;
       }
@@ -108,8 +113,15 @@ void print_job(struct job *j)
 
 void print_jobs()
 {
+  signal(SIGCHLD, sigchld_handler);
+  update_jobs();
   for (int i = 0; i < jobs_len; i++) {
-    if (jobs[i] != NULL)
+    if (jobs[i] != NULL) {
       print_job(jobs[i]);
+      if (jobs[i]->state != RUNNING) {
+        free_job(jobs[i]);
+        jobs[i] = NULL;
+      }
+    }
   }
 }
