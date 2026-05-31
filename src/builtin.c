@@ -129,5 +129,6 @@ int builtin_type(int argc, char **argv)
 
 int builtin_jobs(int argc, char **argv)
 {
+  print_jobs();
   return 0;
 }

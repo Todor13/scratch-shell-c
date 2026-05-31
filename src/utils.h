@@ -9,5 +9,6 @@ void *xmalloc(size_t size);
 void *xrealloc(void *ptr, size_t size);
 char *xstrdup(const char *s);
 int parse_int(const char *s, int *out);
+char *build_cmd(char **argv, int argc);
 
 #endif

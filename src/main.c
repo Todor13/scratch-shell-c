@@ -73,6 +73,7 @@ static int dispatch_builtin(struct tokenize_ctx *ctx)
         return 0;
       } else if (ctx->background) {
         pid_t pid = fork();
+        add_job(pid, build_cmd(ctx->argv, ctx->argc));
         if (pid == 0) {
           builtins[i].fn(ctx->argc, ctx->argv);
           _exit(127);
@@ -101,7 +102,7 @@ static int dispatch_executable(struct tokenize_ctx *ctx)
     exit(127);
   }
   if (pid > 0 && ctx->background) {
-    printf("[1] %d\n", pid);
+    add_job(pid, build_cmd(ctx->argv, ctx->argc));
   }
   if (pid < 0) {
     perror("fork");
@@ -183,6 +184,7 @@ int main(int argc, char *argv[])
   size_t len = 0;
   load_env_history();
   load_path_dirs();
+  init_jobs();
 
   for (;;) {
     line = read_line();
@@ -197,6 +199,8 @@ int main(int argc, char *argv[])
       }
 
       free_tokenize_ctx(ctx);
+      signal(SIGCHLD, sigchld_handler);
+      update_jobs();
     }
     free(line);
   }

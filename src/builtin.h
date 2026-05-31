@@ -8,6 +8,7 @@
 
 #include "history.h"
 #include "exec.h"
+#include "jobs.h"
 
 typedef int (*builtin_fn)(int argc, char **argv);
 
