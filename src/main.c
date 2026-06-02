@@ -199,8 +199,7 @@ int main(int argc, char *argv[])
       }
 
       free_tokenize_ctx(ctx);
-      signal(SIGCHLD, sigchld_handler);
-      update_jobs();
+      reap_jobs();
     }
     free(line);
   }

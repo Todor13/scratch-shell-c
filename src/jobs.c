@@ -141,3 +141,18 @@ void print_jobs()
     }
   }
 }
+
+void reap_jobs()
+{
+  signal(SIGCHLD, sigchld_handler);
+  update_jobs();
+  for (int i = 0; i < jobs_len; i++) {
+    if (jobs[i] != NULL) {
+      if (jobs[i]->state != RUNNING) {
+        print_job(jobs[i]);
+        free_job(jobs[i]);
+        jobs[i] = NULL;
+      }
+    }
+  }
+}

@@ -30,5 +30,6 @@ void update_jobs();
 void add_job(pid_t pid, char *name);
 void print_jobs();
 void print_job(struct job *j);
+void reap_jobs();
 
 #endif
