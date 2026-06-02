@@ -2,13 +2,12 @@
 
 struct job **jobs = NULL;
 int jobs_len = 2;
-pid_t last_job_pid = -1;
-pid_t prev_to_last_pid = -1;
+int seq = 0;
 volatile sig_atomic_t sigchld_reveived = 0;
 
 struct job **init_jobs()
 {
-  jobs = calloc(jobs_len, sizeof(struct job *));
+  jobs = xcalloc(jobs_len, sizeof(struct job *));
 }
 
 static int find_vacant()
@@ -31,6 +30,26 @@ static void free_job(struct job *j)
   free(j);
 }
 
+static struct job **find_recent_jobs()
+{
+  struct job **result = xcalloc(2, sizeof(struct job *));
+  int prev, max = -1;
+  for (size_t i = 0; i < jobs_len; i++) {
+    if (jobs[i] != NULL) {
+      if (jobs[i]->seq > max) {
+        if (result[0]) {
+          prev = max;
+          result[1] = result[0];
+        }
+        max = jobs[i]->seq;
+        result[0] = jobs[i];
+      }
+    }
+  }
+
+  return result;
+}
+
 void update_jobs()
 {
   if (!sigchld_reveived)
@@ -49,9 +68,6 @@ void update_jobs()
         } else if (WIFSTOPPED(status)) {
           jobs[i]->state = STOPPED;
         }
-        print_job(jobs[i]);
-        free_job(jobs[i]);
-        jobs[i] = NULL;
         break;
       }
     }
@@ -73,12 +89,8 @@ void add_job(pid_t pid, char *name)
   j->cmd = name;
   j->pid = pid;
   j->state = RUNNING;
+  j->seq = seq++;
   jobs[idx] = j;
-
-  if (last_job_pid > -1)
-    prev_to_last_pid = last_job_pid;
-
-  last_job_pid = pid;
 
   printf("[%d] %d\n", idx + 1, pid);
 }
@@ -86,10 +98,13 @@ void add_job(pid_t pid, char *name)
 void print_job(struct job *j)
 {
   char current_sign = ' ';
-  if (j->pid == last_job_pid)
+  struct job **recent_jobs = find_recent_jobs();
+  if (j == recent_jobs[0])
     current_sign = '+';
-  else if (j->pid == prev_to_last_pid)
+  if (j == recent_jobs[1])
     current_sign = '-';
+
+  free(recent_jobs);
 
   char *state_str;
 
@@ -108,7 +123,8 @@ void print_job(struct job *j)
     break;
   }
 
-  printf("[%d]%c  %-10s  %s\n", j->id, current_sign, state_str, j->cmd);
+  char *ending = j->state == RUNNING ? " &" : "";
+  printf("[%d]%c  %-17s  %s%s\n", j->id, current_sign, state_str, j->cmd, ending);
 }
 
 void print_jobs()

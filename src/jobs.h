@@ -21,6 +21,7 @@ struct job
   char *cmd;
   pid_t pid;
   enum job_state state;
+  int seq;
 };
 
 struct job **init_jobs();

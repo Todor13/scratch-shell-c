@@ -7,6 +7,7 @@
 
 void *xmalloc(size_t size);
 void *xrealloc(void *ptr, size_t size);
+void *xcalloc(size_t count, size_t size);
 char *xstrdup(const char *s);
 int parse_int(const char *s, int *out);
 char *build_cmd(char **argv, int argc);

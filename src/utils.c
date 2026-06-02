@@ -20,6 +20,16 @@ void *xrealloc(void *ptr, size_t size)
   return new_ptr;
 }
 
+void *xcalloc(size_t count, size_t size)
+{
+  void *ptr = calloc(count, size);
+  if (!ptr) {
+    fprintf(stderr, "out of memory\n");
+    exit(EXIT_FAILURE);
+  }
+  return ptr;
+}
+
 char *xstrdup(const char *s)
 {
   if (s == NULL)
