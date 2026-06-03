@@ -9,6 +9,7 @@ struct builtin builtins[] = {
   { "cd", builtin_cd },
   { "history", builtin_history },
   { "jobs", builtin_jobs },
+  { "declare", builtin_declare },
   { NULL, NULL }
 };
 // clang-format on
@@ -130,5 +131,10 @@ int builtin_type(int argc, char **argv)
 int builtin_jobs(int argc, char **argv)
 {
   print_jobs();
+  return 0;
+}
+
+int builtin_declare(int argc, char **argv)
+{
   return 0;
 }

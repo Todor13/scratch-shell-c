@@ -25,6 +25,7 @@ int builtin_exit(int argc, char **argv);
 int builtin_cd(int argc, char **argv);
 int builtin_history(int argc, char **argv);
 int builtin_jobs(int argc, char **argv);
+int builtin_declare(int argc, char **argv);
 
 extern struct builtin builtins[];
 
