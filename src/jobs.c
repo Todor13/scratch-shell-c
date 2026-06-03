@@ -5,11 +5,6 @@ int jobs_len = 2;
 int seq = 0;
 volatile sig_atomic_t sigchld_reveived = 0;
 
-struct job **init_jobs()
-{
-  jobs = xcalloc(jobs_len, sizeof(struct job *));
-}
-
 static int find_vacant()
 {
   for (int i = 0; i < jobs_len; i++) {
@@ -48,6 +43,11 @@ static struct job **find_recent_jobs()
   }
 
   return result;
+}
+
+struct job **init_jobs()
+{
+  jobs = xcalloc(jobs_len, sizeof(struct job *));
 }
 
 void update_jobs()
@@ -155,4 +155,14 @@ void reap_jobs()
       }
     }
   }
+}
+
+void free_jobs()
+{
+  for (int i = 0; i < jobs_len; i++) {
+    if (jobs[i] != NULL)
+      free_job(jobs[i]);
+  }
+
+  free(jobs);
 }

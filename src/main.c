@@ -204,6 +204,7 @@ int main(int argc, char *argv[])
     free(line);
   }
 
+  free_jobs();
   free_path_dirs();
   free(line);
   return 0;
