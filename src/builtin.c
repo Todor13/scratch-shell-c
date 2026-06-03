@@ -136,5 +136,8 @@ int builtin_jobs(int argc, char **argv)
 
 int builtin_declare(int argc, char **argv)
 {
+  if (argc > 2 && *argv[1] == '-') {
+    printf("declare: %s: not found\n", argv[2]);
+  }
   return 0;
 }
