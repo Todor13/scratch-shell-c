@@ -1,4 +1,5 @@
 #include "input.h"
+#include "variables.h"
 
 const int MAX_ARGS = 32;
 
@@ -185,6 +186,7 @@ int main(int argc, char *argv[])
   load_env_history();
   load_path_dirs();
   init_jobs();
+  init_vars();
 
   for (;;) {
     line = read_line();
@@ -204,8 +206,9 @@ int main(int argc, char *argv[])
     free(line);
   }
 
-  free_jobs();
   free_path_dirs();
+  free_jobs();
+  free_vars();
   free(line);
   return 0;
 }

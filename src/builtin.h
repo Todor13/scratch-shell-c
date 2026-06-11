@@ -9,6 +9,7 @@
 #include "history.h"
 #include "exec.h"
 #include "jobs.h"
+#include "variables.h"
 
 typedef int (*builtin_fn)(int argc, char **argv);
 

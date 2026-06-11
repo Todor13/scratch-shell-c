@@ -1,4 +1,7 @@
 #include "builtin.h"
+#include "variables.h"
+#include <stdio.h>
+#include <string.h>
 
 // clang-format off
 struct builtin builtins[] = {
@@ -14,8 +17,7 @@ struct builtin builtins[] = {
 };
 // clang-format on
 
-int builtin_echo(int argc, char **argv)
-{
+int builtin_echo(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     printf("%s", argv[i]);
     if (i + 1 < argc)
@@ -25,8 +27,7 @@ int builtin_echo(int argc, char **argv)
   return 0;
 }
 
-int builtin_pwd(int argc, char **argv)
-{
+int builtin_pwd(int argc, char **argv) {
   char cwd[1024];
   if (getcwd(cwd, sizeof(cwd)) == NULL) {
     perror("getcwd");
@@ -37,15 +38,13 @@ int builtin_pwd(int argc, char **argv)
   return 0;
 }
 
-int builtin_exit(int argc, char **argv)
-{
+int builtin_exit(int argc, char **argv) {
   persist_env_history();
   free_history();
   exit(0);
 }
 
-int builtin_cd(int argc, char **argv)
-{
+int builtin_cd(int argc, char **argv) {
   char *dir;
   if (strchr(argv[1], '~')) {
     char *home = getenv("HOME");
@@ -81,8 +80,7 @@ int builtin_cd(int argc, char **argv)
   return 0;
 }
 
-int builtin_history(int argc, char **argv)
-{
+int builtin_history(int argc, char **argv) {
   int i = 0;
   int len;
   char **history = read_full_history(&len);
@@ -91,7 +89,7 @@ int builtin_history(int argc, char **argv)
       read_history_fd(argv[2]);
       return 0;
     } else if ((argv[1][1] == 'w' || argv[1][1] == 'a') && argv[2]) {
-      char mode[2] = { argv[1][1], '\0' };
+      char mode[2] = {argv[1][1], '\0'};
       write_history_fd(argv[2], mode);
       return 0;
     }
@@ -109,8 +107,7 @@ int builtin_history(int argc, char **argv)
   return 0;
 }
 
-int builtin_type(int argc, char **argv)
-{
+int builtin_type(int argc, char **argv) {
   for (int i = 0; builtins[i].name; i++) {
     if (strcmp(argv[1], builtins[i].name) == 0) {
       printf("%s is a shell builtin\n", argv[1]);
@@ -128,16 +125,30 @@ int builtin_type(int argc, char **argv)
   return 1;
 }
 
-int builtin_jobs(int argc, char **argv)
-{
+int builtin_jobs(int argc, char **argv) {
   print_jobs();
   return 0;
 }
 
-int builtin_declare(int argc, char **argv)
-{
+int builtin_declare(int argc, char **argv) {
   if (argc > 2 && *argv[1] == '-') {
-    printf("declare: %s: not found\n", argv[2]);
+    char *value = var_get(argv[2]);
+    if (value != NULL)
+      printf("declare -- %s=\"%s\"\n", argv[2], value);
+    else
+      printf("declare: %s: not found\n", argv[2]);
+  } else if (argc > 1 && *argv[1] != '-') {
+    char *name = argv[1];
+    char *value = strchr(name, '=');
+    if (value) {
+      *value = '\0';
+      value = value + 1;
+    } else {
+      value = "";
+    }
+
+    var_set(name, value);
   }
+
   return 0;
 }
