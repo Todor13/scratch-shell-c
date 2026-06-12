@@ -1,6 +1,7 @@
 #include "builtin.h"
 #include "variables.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // clang-format off
@@ -130,6 +131,18 @@ int builtin_jobs(int argc, char **argv) {
   return 0;
 }
 
+static int is_valid_name(const char *name) {
+  if (isdigit(name[0]))
+    return 0;
+
+  for (size_t i = 1; name[i]; i++) {
+    if (!(isalnum(name[i]) || name[i] == '_'))
+      return 0;
+  }
+
+  return 1;
+}
+
 int builtin_declare(int argc, char **argv) {
   if (argc > 2 && *argv[1] == '-') {
     char *value = var_get(argv[2]);
@@ -138,7 +151,7 @@ int builtin_declare(int argc, char **argv) {
     else
       printf("declare: %s: not found\n", argv[2]);
   } else if (argc > 1 && *argv[1] != '-') {
-    char *name = argv[1];
+    char *name = xstrdup(argv[1]);
     char *value = strchr(name, '=');
     if (value) {
       *value = '\0';
@@ -147,7 +160,13 @@ int builtin_declare(int argc, char **argv) {
       value = "";
     }
 
+    if (!is_valid_name(name)) {
+      printf("declare: `%s': not a valid identifier\n", argv[1]);
+      return 1;
+    }
+
     var_set(name, value);
+    free(name);
   }
 
   return 0;
