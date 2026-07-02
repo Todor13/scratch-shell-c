@@ -195,6 +195,8 @@ int main(int argc, char *argv[])
       write_history(strdup(line));
 
       struct tokenize_ctx *ctx = tokenize(line);
+      //TODO: Cover pipes..
+      expand_vars(ctx->argc, ctx->argv);
 
       if (dispatch(ctx) == -1) {
         printf("%s: command not found\n", line);

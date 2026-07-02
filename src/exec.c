@@ -39,6 +39,7 @@ void free_path_dirs()
   {
     free(path_dirs[i]);
   }
+  free(path_dirs);
 }
 
 int exists(char **result, int count, char *cmd)
