@@ -85,7 +85,7 @@ void expand_vars(int argc, char **argv)
     }
 
     if (found) {
-      buffer[buffer_index + 1] = '\0'; 
+      buffer[buffer_index] = '\0'; 
       free(argv[i]);
       argv[i] = xstrdup(buffer);
     }

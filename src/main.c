@@ -211,6 +211,6 @@ int main(int argc, char *argv[])
   free_path_dirs();
   free_jobs();
   free_vars();
-  free(line);
+  // free(line);
   return 0;
 }
