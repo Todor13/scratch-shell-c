@@ -48,9 +48,9 @@ void var_set(const char *name, const char *value)
   }
 }
 
-void expand_vars(int argc, char **argv)
+void expand_vars(int *argc, char **argv)
 {
-  for (size_t i = 0; i < argc; i++) {
+  for (size_t i = 0; i < *argc; i++) {
     char buffer[1000];
     int buffer_index = 0;
     int l = -1;
@@ -85,9 +85,24 @@ void expand_vars(int argc, char **argv)
     }
 
     if (found) {
-      buffer[buffer_index] = '\0'; 
+      buffer[buffer_index] = '\0';
       free(argv[i]);
       argv[i] = xstrdup(buffer);
+    }
+  }
+
+  int i = 0;
+  while (argv[i]) {
+    if (strlen(argv[i]) == 0) {
+      free(argv[i]);
+      int j;
+      for (j = i; j < *argc - 1; j++) {
+        argv[j] = argv[j + 1];
+      }
+      (*argc)--;
+      argv[*argc] = NULL;
+    } else {
+      i += 1;
     }
   }
 }
